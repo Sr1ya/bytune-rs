@@ -359,14 +359,16 @@ fn unescape_js(body: &str) -> String {
     out
 }
 
-/// The newest token secret the web player's script declares (`{secret:'…',version:61}`).
+/// The newest token secret the web player's script declares (`{secret:'…',version:61}`). Two plain
+/// patterns, one per quote: a back-referencing one (fancy-regex) backtracked for minutes over the 4.5 MB
+/// script and hung the sign-in after the session was captured.
 fn player_secret(script: &str) -> Option<PlayerSecret> {
-    static SECRET: Lazy<fancy_regex::Regex> =
-        Lazy::new(|| fancy_regex::Regex::new(r#"\{secret:(['"])((?:\\.|(?!\1).)*)\1,version:(\d+)\}"#).unwrap());
-    SECRET
+    static SINGLE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\{secret:'((?:\\.|[^'\\])*)',version:(\d+)\}").unwrap());
+    static DOUBLE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"\{secret:"((?:\\.|[^"\\])*)",version:(\d+)\}"#).unwrap());
+    SINGLE
         .captures_iter(script)
-        .filter_map(|c| c.ok())
-        .filter_map(|c| Some(PlayerSecret { version: c.get(3)?.as_str().parse().ok()?, secret: unescape_js(c.get(2)?.as_str()) }))
+        .chain(DOUBLE.captures_iter(script))
+        .filter_map(|c| Some(PlayerSecret { version: c.get(2)?.as_str().parse().ok()?, secret: unescape_js(c.get(1)?.as_str()) }))
         .max_by_key(|p| p.version)
 }
 
@@ -511,11 +513,20 @@ fn cookie_ok(value: &str) -> bool {
     (20..=4096).contains(&value.len()) && value.bytes().all(|b| matches!(b, 0x21 | 0x23..=0x2b | 0x2d..=0x3a | 0x3c..=0x5b | 0x5d..=0x7e))
 }
 
-/// Pages the sign-in window may show: Spotify's, and its sign-in partners'.
+/// Pages the sign-in window may show: Spotify's, and its sign-in partners'. The webview asks this for
+/// the frames inside a page too (WebKitGTK does), so Spotify's reCAPTCHA frame — Google's
+/// /recaptcha/ pages, nothing else of Google's — is allowed; without it every sign-in fails.
 fn sign_in_url(url: &url::Url) -> bool {
     static HOST: Lazy<Regex> =
         Lazy::new(|| Regex::new(r"(?i)^(?:[a-z0-9-]+\.)*spotify\.com$|^accounts\.google\.com$|^appleid\.apple\.com$|^(?:www|m)\.facebook\.com$").unwrap());
-    url.scheme() == "https" && url.host_str().map(|h| HOST.is_match(h)).unwrap_or(false)
+    static CAPTCHA: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)^(?:www\.google\.com|www\.recaptcha\.net)$").unwrap());
+    if url.scheme() == "about" {
+        return true; // about:blank frames the sign-in pages create
+    }
+    let Some(host) = url.host_str() else { return false };
+    // Google sign-in also checks the browser's Google session through a YouTube accounts frame.
+    let google_check = host.eq_ignore_ascii_case("accounts.youtube.com") && url.path().starts_with("/accounts/CheckConnection");
+    url.scheme() == "https" && (HOST.is_match(host) || google_check || (CAPTCHA.is_match(host) && url.path().starts_with("/recaptcha/")))
 }
 
 /* ---------------- matching (track-match.ts) ---------------- */
@@ -630,13 +641,18 @@ fn match_score(target: &ImportSong, song: &Track, prefer: &str) -> Option<f64> {
     Some(score)
 }
 
+/// The best candidate that is the target. On a tie the earlier one wins — the search's own order, as
+/// in ByTune (`max_by` would take the last, and put "Song (Original Piano Demo)" over "Song").
 fn best_match(target: &ImportSong, candidates: &[Track], prefer: &str) -> Option<Track> {
-    candidates
-        .iter()
-        .filter(|s| !s.id.is_empty())
-        .filter_map(|s| match_score(target, s, prefer).map(|sc| (sc, s)))
-        .max_by(|a, b| a.0.partial_cmp(&b.0).unwrap())
-        .map(|(_, s)| s.clone())
+    let mut best: Option<(f64, &Track)> = None;
+    for song in candidates.iter().filter(|s| !s.id.is_empty()) {
+        if let Some(score) = match_score(target, song, prefer) {
+            if best.map(|(b, _)| score > b).unwrap_or(true) {
+                best = Some((score, song));
+            }
+        }
+    }
+    best.map(|(_, s)| s.clone())
 }
 
 fn search_queries(target: &ImportSong) -> Vec<String> {
@@ -1261,14 +1277,22 @@ async fn sign_in(app: &tauri::AppHandle) -> Option<String> {
         .incognito(true)
         .user_agent(UA)
         .background_color(tauri::window::Color(18, 18, 18, 255))
-        .on_navigation(sign_in_url)
+        .on_navigation(|u| {
+            let ok = sign_in_url(u);
+            if !ok {
+                log::info!("spotify sign-in: blocked {}://{}{}", u.scheme(), u.host_str().unwrap_or(""), u.path());
+            }
+            ok
+        })
         .on_new_window(|u, _| if sign_in_url(&u) { tauri::webview::NewWindowResponse::Allow } else { tauri::webview::NewWindowResponse::Deny })
         .build()
         .map_err(|e| log::warn!("spotify: sign-in window: {e}"))
         .ok()?;
+    log::info!("spotify sign-in: window open");
     let closed = tx.clone();
     win.on_window_event(move |e| {
         if matches!(e, tauri::WindowEvent::Destroyed) {
+            log::info!("spotify sign-in: window closed");
             let _ = closed.send(None);
         }
     });
@@ -1277,12 +1301,20 @@ async fn sign_in(app: &tauri::AppHandle) -> Option<String> {
         let home: url::Url = "https://open.spotify.com/".parse().unwrap();
         loop {
             tokio::time::sleep(Duration::from_millis(700)).await;
-            let Ok(cookies) = watcher.cookies_for_url(home.clone()) else { break };
+            let cookies = match watcher.cookies_for_url(home.clone()) {
+                Ok(c) => c,
+                Err(e) => {
+                    log::info!("spotify sign-in: cookies unreadable: {e}");
+                    break;
+                }
+            };
+            log::debug!("spotify sign-in: {} cookies: {:?}", cookies.len(), cookies.iter().map(|c| c.name().to_string()).collect::<Vec<_>>());
             let found = cookies.iter().find(|c| {
                 let domain = c.domain().unwrap_or("").trim_start_matches('.');
                 c.name() == "sp_dc" && (domain == "spotify.com" || domain.ends_with(".spotify.com")) && cookie_ok(c.value())
             });
             if let Some(c) = found {
+                log::info!("spotify sign-in: session cookie found");
                 let _ = tx.send(Some(c.value().to_string()));
                 break;
             }
@@ -1300,6 +1332,36 @@ async fn sign_in(app: &tauri::AppHandle) -> Option<String> {
 mod tests {
     use super::*;
 
+    /// The web player's script, saved to $BYTUNE_WEBPLAYER_JS: how long reading its values takes.
+    #[test]
+    #[ignore]
+    fn player_script_timing() {
+        let path = std::env::var("BYTUNE_WEBPLAYER_JS").unwrap();
+        let script = std::fs::read_to_string(path).unwrap();
+        let t = std::time::Instant::now();
+        let secret = player_secret(&script);
+        println!("secret: version={:?} in {:?}", secret.map(|s| s.version), t.elapsed());
+    }
+
+    #[test]
+    fn secrets_in_script() {
+        let script = r#"x={secret:'a\'b',version:60},y={secret:"c\x41d",version:61};"#;
+        let found = player_secret(script).unwrap();
+        assert_eq!((found.version, found.secret.as_str()), (61, "cAd"));
+    }
+
+    #[test]
+    fn sign_in_pages() {
+        let ok = |u: &str| sign_in_url(&url::Url::parse(u).unwrap());
+        assert!(ok("https://accounts.spotify.com/en/login"));
+        assert!(ok("https://www.google.com/recaptcha/enterprise/anchor?k=x"));
+        assert!(ok("https://accounts.youtube.com/accounts/CheckConnection?x=1"));
+        assert!(!ok("https://accounts.youtube.com/other"));
+        assert!(!ok("https://www.google.com/search?q=x"));
+        assert!(!ok("https://evil.example/recaptcha/"));
+        assert!(!ok("http://accounts.spotify.com/"));
+    }
+
     #[test]
     fn ids() {
         assert_eq!(playlist_id("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M?si=x").as_deref(), Some("37i9dQZF1DXcBWIGoYBM5M"));
@@ -1313,6 +1375,11 @@ mod tests {
         let live = Track { id: "a".into(), title: "Yellow (Live)".into(), artist: "Coldplay".into(), duration: 280.0, ..Default::default() };
         let studio = Track { id: "b".into(), title: "Yellow".into(), artist: "Coldplay".into(), duration: 267.0, ..Default::default() };
         assert_eq!(best_match(&target, &[live, studio], "").map(|t| t.id).as_deref(), Some("b"));
+        // A tie keeps the search's order: the song itself over a same-length demo listed after it.
+        let wedding = ImportSong { title: "Stop The Wedding!".into(), artist: "Ashe".into(), duration: 199.0, ..Default::default() };
+        let song = Track { id: "s".into(), title: "Stop The Wedding!".into(), artist: "Ashe".into(), duration: 199.0, ..Default::default() };
+        let demo = Track { id: "d".into(), title: "Stop The Wedding! (Original Piano Demo)".into(), artist: "Ashe".into(), duration: 199.0, ..Default::default() };
+        assert_eq!(best_match(&wedding, &[song, demo], "").map(|t| t.id).as_deref(), Some("s"));
         assert_eq!(search_queries(&target), vec!["Yellow Coldplay".to_string(), "Yellow".to_string()]);
     }
 }
