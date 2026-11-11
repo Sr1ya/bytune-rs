@@ -26,6 +26,17 @@ use std::time::Duration;
 use unicode_normalization::UnicodeNormalization;
 
 const UA: &str = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+/// The sign-in window's own user agent. Only WebKitGTK gets one: its default isn't one Spotify knows.
+/// WebView2 (Windows) and WKWebView (macOS) keep theirs — a Linux Chrome agent there contradicts the
+/// engine's client hints (Sec-CH-UA-Platform: "Windows"), and Spotify's bot check refuses the sign-in.
+#[cfg(target_os = "linux")]
+const SIGN_IN_UA: Option<&str> = Some(UA);
+#[cfg(not(target_os = "linux"))]
+const SIGN_IN_UA: Option<&str> = None;
+/// Google's sign-in refuses a Chrome agent that isn't Chrome ("This browser or app may not be
+/// secure"); WebKit's own site quirk for accounts.google.com is a Firefox agent, so that's used there.
+#[cfg(target_os = "linux")]
+const GOOGLE_UA: &str = "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0";
 const WEB: &str = "https://open.spotify.com";
 const PATHFINDER: &str = "https://api-partner.spotify.com/pathfinder/v2/query";
 /// The last query hashes known to work (the web player, 2026-11-03); its live script wins.
@@ -517,16 +528,26 @@ fn cookie_ok(value: &str) -> bool {
 /// the frames inside a page too (WebKitGTK does), so Spotify's reCAPTCHA frame — Google's
 /// /recaptcha/ pages, nothing else of Google's — is allowed; without it every sign-in fails.
 fn sign_in_url(url: &url::Url) -> bool {
-    static HOST: Lazy<Regex> =
-        Lazy::new(|| Regex::new(r"(?i)^(?:[a-z0-9-]+\.)*spotify\.com$|^accounts\.google\.com$|^appleid\.apple\.com$|^(?:www|m)\.facebook\.com$").unwrap());
+    static HOST: Lazy<Regex> = Lazy::new(|| {
+        Regex::new(r"(?i)^(?:[a-z0-9-]+\.)*spotify\.com$|^appleid\.apple\.com$|^(?:www|m)\.facebook\.com$|^(?:gds|consent)\.google\.com$|^consent\.youtube\.com$")
+            .unwrap()
+    });
     static CAPTCHA: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)^(?:www\.google\.com|www\.recaptcha\.net)$").unwrap());
     if url.scheme() == "about" {
         return true; // about:blank frames the sign-in pages create
     }
     let Some(host) = url.host_str() else { return false };
-    // Google sign-in also checks the browser's Google session through a YouTube accounts frame.
-    let google_check = host.eq_ignore_ascii_case("accounts.youtube.com") && url.path().starts_with("/accounts/CheckConnection");
-    url.scheme() == "https" && (HOST.is_match(host) || google_check || (CAPTCHA.is_match(host) && url.path().starts_with("/recaptcha/")))
+    // Google sign-in checks the browser's Google session through YouTube's accounts pages, and once
+    // signed in hands the session on through them and the country's accounts.google.<tld> (SetSID).
+    let youtube_accounts = host.eq_ignore_ascii_case("accounts.youtube.com") && url.path().starts_with("/accounts/");
+    url.scheme() == "https"
+        && (HOST.is_match(host) || google_accounts(host) || youtube_accounts || (CAPTCHA.is_match(host) && url.path().starts_with("/recaptcha/")))
+}
+
+/// Google's accounts pages: accounts.google.com and its country twins (accounts.google.co.in, .de…).
+fn google_accounts(host: &str) -> bool {
+    static GOOGLE: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)^accounts\.google\.(?:com|(?:co|com)\.[a-z]{2}|[a-z]{2})$").unwrap());
+    GOOGLE.is_match(host)
 }
 
 /* ---------------- matching (track-match.ts) ---------------- */
@@ -1271,11 +1292,14 @@ async fn sign_in(app: &tauri::AppHandle) -> Option<String> {
     use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
     let url: url::Url = format!("https://accounts.spotify.com/login?continue={}", urlencoding::encode(&format!("{WEB}/"))).parse().ok()?;
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Option<String>>();
-    let win = WebviewWindowBuilder::new(app, LOGIN_WINDOW, WebviewUrl::External(url))
+    let mut builder = WebviewWindowBuilder::new(app, LOGIN_WINDOW, WebviewUrl::External(url))
         .title("Connect Spotify")
         .inner_size(480.0, 760.0)
-        .incognito(true)
-        .user_agent(UA)
+        .incognito(true);
+    if let Some(ua) = SIGN_IN_UA {
+        builder = builder.user_agent(ua);
+    }
+    let win = builder
         .background_color(tauri::window::Color(18, 18, 18, 255))
         .on_navigation(|u| {
             let ok = sign_in_url(u);
@@ -1289,6 +1313,7 @@ async fn sign_in(app: &tauri::AppHandle) -> Option<String> {
         .map_err(|e| log::warn!("spotify: sign-in window: {e}"))
         .ok()?;
     log::info!("spotify sign-in: window open");
+    google_agent(&win);
     let closed = tx.clone();
     win.on_window_event(move |e| {
         if matches!(e, tauri::WindowEvent::Destroyed) {
@@ -1328,6 +1353,41 @@ async fn sign_in(app: &tauri::AppHandle) -> Option<String> {
     cookie
 }
 
+/// On WebKitGTK: when the window's page heads to Google's sign-in, it switches to Google's agent
+/// (GOOGLE_UA) and loads that page afresh, so Google sees the new agent from its first request. It
+/// stays switched for the rest of the sign-in: Spotify takes a Firefox agent as well, and reloading
+/// the page Google sends back to would spend its one-time code. Main-frame loads only, so the
+/// reCAPTCHA frame on Spotify's own page never switches it.
+#[cfg(target_os = "linux")]
+fn google_agent(win: &tauri::WebviewWindow) {
+    let applied = win.with_webview(|wv| {
+        use webkit2gtk::{LoadEvent, SettingsExt, WebViewExt};
+        wv.inner().connect_load_changed(|view, event| {
+            if !matches!(event, LoadEvent::Started | LoadEvent::Redirected) {
+                return;
+            }
+            let Some(uri) = view.uri() else { return };
+            let Ok(url) = url::Url::parse(&uri) else { return };
+            if !url.host_str().map(google_accounts).unwrap_or(false) {
+                return;
+            }
+            let Some(settings) = WebViewExt::settings(view) else { return };
+            if settings.user_agent().as_deref() == Some(GOOGLE_UA) {
+                return;
+            }
+            log::info!("spotify sign-in: Google's sign-in, with a Firefox agent");
+            settings.set_user_agent(Some(GOOGLE_UA));
+            view.load_uri(&uri);
+        });
+    });
+    if let Err(e) = applied {
+        log::warn!("spotify sign-in: Google agent not set: {e}");
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn google_agent(_win: &tauri::WebviewWindow) {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1356,7 +1416,14 @@ mod tests {
         assert!(ok("https://accounts.spotify.com/en/login"));
         assert!(ok("https://www.google.com/recaptcha/enterprise/anchor?k=x"));
         assert!(ok("https://accounts.youtube.com/accounts/CheckConnection?x=1"));
+        assert!(ok("https://accounts.youtube.com/accounts/SetSID?ssdc=1"));
+        assert!(ok("https://accounts.google.co.in/accounts/SetSID?ssdc=1"));
+        assert!(ok("https://accounts.google.de/accounts/SetSID"));
+        assert!(ok("https://accounts.google.com.br/accounts/SetSID"));
+        assert!(ok("https://gds.google.com/web/recoveryoptions"));
         assert!(!ok("https://accounts.youtube.com/other"));
+        assert!(!ok("https://accounts.google.evil.com/"));
+        assert!(!ok("https://mail.google.com/"));
         assert!(!ok("https://www.google.com/search?q=x"));
         assert!(!ok("https://evil.example/recaptcha/"));
         assert!(!ok("http://accounts.spotify.com/"));
