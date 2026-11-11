@@ -566,6 +566,20 @@ mod tests {
         assert_eq!(apple_score("Today's Hits", "David Kushner", "Today's Hits", "Daylight", "David Kushner", None), None);
     }
 
+    /// `cargo test --lib live_canvas -- --ignored --nocapture`
+    #[tokio::test]
+    #[ignore]
+    async fn live_canvas() {
+        let http = reqwest::Client::builder().gzip(true).brotli(true).build().unwrap();
+        for (title, artist, album) in [("Blinding Lights", "The Weeknd", Some("After Hours")), ("Espresso", "Sabrina Carpenter", None), ("Daylight", "David Kushner", Some("Daylight"))] {
+            let started = Instant::now();
+            let apple = apple_canvas(&http, "in", title, artist, album).await.map(|h| h.url);
+            let tidal = tidal_canvas(&http, title, artist, album).await.map(|h| h.url);
+            let community = community_canvas(&http, title, artist, album).await.map(|h| h.url);
+            println!("{title}: apple={apple:?}\n  tidal={tidal:?}\n  community={community:?}  ({} ms)", started.elapsed().as_millis());
+        }
+    }
+
     #[test]
     fn hls() {
         let master = "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=900,RESOLUTION=720x720,CODECS=\"avc1.640020\"\nlow.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=2000,RESOLUTION=1080x1080,CODECS=\"avc1.640028\"\nhigh.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=1000,RESOLUTION=2160x2160,CODECS=\"hvc1.2\"\nhevc.m3u8\n";

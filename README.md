@@ -76,14 +76,21 @@ Audio plays in the webview's `<audio>` element (WebKitGTK and GStreamer on Linux
 Windows, WKWebView on macOS) from the local proxy,
 so ByTune's audio engine (EQ, crossfade, Automix, leveling) works as-is.
 
-## Not ported yet
+## Features ported from ByTune
 
-- Accounts, cloud sync and Rooms (Supabase); the app runs as a local guest profile.
-- Connecting a Spotify account (public playlist links still import).
-- Lyrics sources: only BetterLyrics, YouTube captions, the YouTube Music lyrics tab and LRCLIB
-  (ByTune asks 13 sources).
-- Spotify Canvas videos, in-app updates, dropping files from the file manager onto the window
-  (`bytune song.mp3` from the command line works; no file-manager association is registered yet).
+- **Accounts, cloud sync and Rooms** (`src/cloud/`): username/password and Google sign-in against
+  ByTune's Supabase project, two-way backup with ByTune's record-level merges, listen-together Rooms.
+  They run in the main window with Supabase's own client; the session is sealed in the OS keychain.
+- **Lyrics from ByTune's 13 sources** (`src-tauri/src/lyrics/`): lrc.red, BiniLyrics, BetterLyrics,
+  Portato, PaxSenix, LyricsPlus, Unison, YouTube captions, the YT Music lyrics tab, KuGou, LRCLIB,
+  Musixmatch and Genius, taken in ByTune's priority order. Live check: `cargo test --lib live_sources -- --ignored --nocapture`.
+- **Canvas videos** (`canvas.rs`): Apple motion artwork, Tidal video covers, the community index, and
+  Spotify's own Canvas for a connected account.
+- **Connect Spotify**: sign in once in a private window; your playlists and Liked Songs import.
+- **In-app updates** (`updater.rs`): Windows, macOS and the AppImage install signed updates in place;
+  .deb and .rpm installs open the release page.
+- **Opening and dropping files**: audio file associations, "Open with", files dropped on the window,
+  and `bytune://` links (Google sign-in, Room invites).
 
 Data lives in the app data folder for `app.bytune.player` (Linux: `~/.local/share/app.bytune.player/`);
 downloads go to `~/Downloads/ByTune`. The app was called HiTune before: on its first run, ByTune
