@@ -15,6 +15,7 @@
 mod downloads;
 mod innertube;
 mod ipc;
+mod links;
 mod local_library;
 mod lyrics;
 mod music;
@@ -26,6 +27,7 @@ mod spotify;
 mod state;
 mod stats;
 mod tray;
+mod updater;
 mod ytm;
 
 use state::AppState;
@@ -34,6 +36,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tauri::http::{Response, StatusCode};
 use tauri::{Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri_plugin_deep_link::DeepLinkExt;
 
 /// The botguard helper ships next to the ByTune binary (a Tauri sidecar); in a dev
 /// checkout it is also found on PATH by rustypipe itself.
@@ -82,28 +85,47 @@ pub(crate) fn note_asleep(w: &tauri::WebviewWindow) {
     }
 }
 
-fn cli_files(args: &[String]) -> Vec<String> {
+/// Audio files among launch arguments ("Open with", a double-click, `bytune song.mp3`).
+fn cli_files(args: &[String]) -> Vec<PathBuf> {
     args.iter()
         .skip(1)
-        .filter(|a| !a.starts_with('-'))
+        .filter(|a| !a.starts_with('-') && !a.starts_with("bytune://"))
         .filter_map(|a| std::path::absolute(a).ok())
-        .filter(|p| p.is_file())
-        .map(|p| p.to_string_lossy().to_string())
+        .filter(|p| p.is_file() && links::is_audio(p))
         .collect()
+}
+
+/// A dropped file's bytes from the page (Windows and macOS; see links.rs).
+#[tauri::command]
+async fn drop_file(app: tauri::AppHandle, request: tauri::ipc::Request<'_>) -> Result<(), String> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err("Expected the file's bytes".into());
+    };
+    let name = request
+        .headers()
+        .get("x-file-name")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| urlencoding::decode(v).ok())
+        .map(|v| v.into_owned())
+        .unwrap_or_default();
+    links::drop_file(&app, &name, bytes).await
 }
 
 pub fn run() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("bytune_lib=info")).format_timestamp_millis().init();
 
     tauri::Builder::default()
+        // A second launch (Start menu, a shortcut, an audio file, a bytune:// link) brings back the
+        // running window, from the tray too; its links reach the deep-link plugin, its files play.
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             tray::show_main(app);
-            let files = cli_files(&argv);
-            if !files.is_empty() {
-                let (app, st) = (app.clone(), app.state::<Arc<AppState>>().inner().clone());
-                tauri::async_runtime::spawn(async move { ipc::open_files(&app, &st, files).await });
-            }
+            links::queue_files(app, cli_files(&argv));
         }))
+        .plugin(tauri_plugin_deep_link::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_notification::init())
+        .manage(updater::Updates::default())
+        .manage(links::Links::default())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
@@ -167,6 +189,7 @@ pub fn run() {
             });
 
             app.manage(state.clone());
+            updater::start(&handle);
 
             // Logout or shutdown (SIGTERM) quits like tray Quit: the page saves, Replay flushes.
             #[cfg(unix)]
@@ -183,11 +206,36 @@ pub fn run() {
                 log::warn!("tray unavailable: {e}");
             }
 
+            // bytune:// links: Google sign-in coming back, Rooms invites. Installers register the
+            // scheme; a dev run or an AppImage registers it for itself.
+            #[cfg(any(target_os = "linux", windows))]
+            if cfg!(debug_assertions) || std::env::var_os("APPIMAGE").is_some() {
+                if let Err(e) = app.deep_link().register_all() {
+                    log::warn!("bytune:// links not registered: {e}");
+                }
+            }
+            if let Ok(Some(urls)) = app.deep_link().get_current() {
+                for url in urls {
+                    links::handle_url(&handle, url.as_str());
+                }
+            }
+            let h = handle.clone();
+            app.deep_link().on_open_url(move |event| {
+                for url in event.urls() {
+                    links::handle_url(&h, url.as_str());
+                }
+            });
+
             let builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
                 .title("ByTune")
                 .inner_size(1280.0, 820.0)
                 .min_inner_size(1000.0, 640.0)
                 .center();
+            // Files dropped from a file manager: Linux reports their paths natively without touching
+            // the page's own drags (songs onto playlists); on Windows and macOS the native handler would
+            // capture those too, so it stays off and the page sends dropped files itself (links.rs).
+            #[cfg(not(target_os = "linux"))]
+            let builder = builder.disable_drag_drop_handler();
             // macOS keeps its own traffic-light buttons over the page's top bar (which leaves room for
             // them and draws no caption buttons there); elsewhere the page draws the whole title bar.
             #[cfg(target_os = "macos")]
@@ -195,8 +243,6 @@ pub fn run() {
             #[cfg(not(target_os = "macos"))]
             let builder = builder.decorations(false);
             let window = builder
-                // HTML5 drag-and-drop (tracks onto playlists) needs the native file-drop handler off.
-                .disable_drag_drop_handler()
                 .background_color(tauri::window::Color(10, 10, 10, 255))
                 .build()?;
             let w = window.clone();
@@ -220,6 +266,21 @@ pub fn run() {
                     note_asleep(&w);
                 }
                 tauri::WindowEvent::Focused(_) => note_asleep(&w),
+                tauri::WindowEvent::DragDrop(drag) => match drag {
+                    tauri::DragDropEvent::Enter { paths, .. } => {
+                        if paths.iter().any(|p| links::is_audio(p)) {
+                            let _ = w.emit("files:drag", true);
+                        }
+                    }
+                    tauri::DragDropEvent::Drop { paths, .. } => {
+                        let _ = w.emit("files:drag", false);
+                        links::queue_files(w.app_handle(), paths.clone());
+                    }
+                    tauri::DragDropEvent::Leave => {
+                        let _ = w.emit("files:drag", false);
+                    }
+                    _ => {}
+                },
                 tauri::WindowEvent::CloseRequested { api, .. } => {
                     api.prevent_close();
                     // "Close to tray" (on unless switched off in Settings): the window goes, ByTune
@@ -239,14 +300,10 @@ pub fn run() {
                 _ => {}
             });
 
-            let files = cli_files(&std::env::args().collect::<Vec<_>>());
-            if !files.is_empty() {
-                let (h, s) = (handle.clone(), state.clone());
-                tauri::async_runtime::spawn(async move { ipc::open_files(&h, &s, files).await });
-            }
+            links::queue_files(&handle, cli_files(&std::env::args().collect::<Vec<_>>()));
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![ipc::ipc])
+        .invoke_handler(tauri::generate_handler![ipc::ipc, drop_file])
         .build(tauri::generate_context!())
         .expect("error while starting ByTune")
         .run(|app, event| match event {
@@ -259,6 +316,12 @@ pub fn run() {
             // macOS: clicking the Dock icon brings back a window closed to the tray.
             #[cfg(target_os = "macos")]
             tauri::RunEvent::Reopen { has_visible_windows: false, .. } => tray::show_main(app),
+            // macOS: Finder's Open With, or a double-click on an audio file ByTune opens. (bytune://
+            // links arrive the same way and are the deep-link plugin's.)
+            #[cfg(target_os = "macos")]
+            tauri::RunEvent::Opened { urls } => {
+                links::queue_files(app, urls.iter().filter_map(|u| u.to_file_path().ok()).collect());
+            }
             _ => {}
         });
 }

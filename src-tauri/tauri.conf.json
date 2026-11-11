@@ -51,6 +51,102 @@
       "nsis": {
         "installMode": "currentUser"
       }
+    },
+    "createUpdaterArtifacts": false,
+    "fileAssociations": [
+      {
+        "ext": [
+          "mp3"
+        ],
+        "name": "MP3 audio",
+        "description": "MP3 audio",
+        "role": "Viewer",
+        "mimeType": "audio/mpeg"
+      },
+      {
+        "ext": [
+          "m4a",
+          "aac"
+        ],
+        "name": "AAC audio",
+        "description": "AAC audio",
+        "role": "Viewer",
+        "mimeType": "audio/mp4"
+      },
+      {
+        "ext": [
+          "flac"
+        ],
+        "name": "FLAC audio",
+        "description": "FLAC audio",
+        "role": "Viewer",
+        "mimeType": "audio/flac"
+      },
+      {
+        "ext": [
+          "wav"
+        ],
+        "name": "WAV audio",
+        "description": "WAV audio",
+        "role": "Viewer",
+        "mimeType": "audio/wav"
+      },
+      {
+        "ext": [
+          "ogg",
+          "oga"
+        ],
+        "name": "Ogg audio",
+        "description": "Ogg audio",
+        "role": "Viewer",
+        "mimeType": "audio/ogg"
+      },
+      {
+        "ext": [
+          "opus"
+        ],
+        "name": "Opus audio",
+        "description": "Opus audio",
+        "role": "Viewer",
+        "mimeType": "audio/opus"
+      },
+      {
+        "ext": [
+          "aiff",
+          "aif"
+        ],
+        "name": "AIFF audio",
+        "description": "AIFF audio",
+        "role": "Viewer",
+        "mimeType": "audio/aiff"
+      },
+      {
+        "ext": [
+          "wma"
+        ],
+        "name": "Windows Media audio",
+        "description": "Windows Media audio",
+        "role": "Viewer",
+        "mimeType": "audio/x-ms-wma"
+      }
+    ]
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDU3RUUzQUVENTVEM0FBNDYKUldSR3F0TlY3VHJ1VjVkVTN4Zmpnc04zYU5ZQ2xIalVYU1VRcnREdnRKRTNaMmZxeWphc3ByYkMK",
+      "endpoints": [
+        "https://github.com/Sr1ya/bytune-rs/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    },
+    "deep-link": {
+      "desktop": {
+        "schemes": [
+          "bytune"
+        ]
+      }
     }
   }
 }

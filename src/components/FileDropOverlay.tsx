@@ -1,7 +1,7 @@
 /**
  * "Drop to play" while audio files from Explorer/Finder are dragged over the
- * window. Only a hint: the preload takes the dropped files and the main
- * process plays them (src/lib/openedFiles.ts). Drags that start inside ByTune
+ * window. Only a hint: the dropped files reach the backend (natively on Linux,
+ * through shared/api.ts elsewhere), which plays them (src/lib/openedFiles.ts). Drags that start inside ByTune
  * (a cover, a song row) are its own and never raise it.
  */
 import { useEffect, useState } from "react";
@@ -32,6 +32,12 @@ export function FileDropOverlay() {
       inside = false;
       setOver(false);
     };
+    // Linux: the backend takes the drop itself (the page sees the drag arrive but never the drop),
+    // and says when it's over or gone.
+    const offNative = window.bytune?.onFilesDrag?.((over) => {
+      if (over) setOver(true);
+      else end();
+    });
     window.addEventListener("dragstart", start);
     window.addEventListener("dragenter", enter);
     window.addEventListener("dragleave", leave);
@@ -43,6 +49,7 @@ export function FileDropOverlay() {
       window.removeEventListener("dragleave", leave);
       window.removeEventListener("drop", end);
       window.removeEventListener("dragend", end);
+      offNative?.();
     };
   }, []);
 

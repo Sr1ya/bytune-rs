@@ -214,6 +214,8 @@ const api = {
   quitReady: () => send("app:quitReady"),
   /** The window was minimized or hidden (true), or is back (false): decorative motion rests meanwhile. */
   onWindowAsleep: (cb: (asleep: boolean) => void): (() => void) => on("window:asleep", cb),
+  /** Linux: audio files from a file manager are over the window (true) or gone/dropped (false). */
+  onFilesDrag: (cb: (over: boolean) => void): (() => void) => on("files:drag", cb),
 
   // Tray menu commands → UI; playback state UI → tray.
   onMenuCommand: (cb: (command: string) => void): (() => void) => on("menu:command", cb),
@@ -256,8 +258,44 @@ declare global {
 }
 
 /** Installs the bridge when running inside the Tauri shell (a plain browser gets no bridge, as before). */
+/**
+ * Audio files dropped from Explorer or Finder play at once, as in ByTune. Linux reports the dropped
+ * paths to the backend natively (src-tauri/src/links.rs); on Windows and macOS that handler would also
+ * swallow the page's own drags, so the page hands the dropped files' bytes over itself.
+ */
+function installFileDrop(): void {
+  if (/Linux/.test(navigator.userAgent) && !/Android/.test(navigator.userAgent)) return;
+  const audio = /\.(mp3|m4a|aac|flac|wav|ogg|oga|opus|webm|alac|aiff?|wma)$/i;
+  window.addEventListener("dragover", (e) => {
+    if (e.dataTransfer?.types.includes("Files")) e.preventDefault();
+  });
+  window.addEventListener("drop", (e) => {
+    const files = [...(e.dataTransfer?.files ?? [])].filter((f) => audio.test(f.name)).slice(0, 100);
+    if (!files.length) return;
+    e.preventDefault();
+    void (async () => {
+      for (const f of files) {
+        try {
+          const bytes = new Uint8Array(await f.arrayBuffer());
+          await invoke("drop_file", bytes, { headers: { "x-file-name": encodeURIComponent(f.name) } });
+        } catch {
+          /* unreadable or not audio: the rest still play */
+        }
+      }
+    })();
+  });
+}
+
 export function installBridge(): void {
   if (typeof window !== "undefined" && window.__TAURI_INTERNALS__ && !window.bytune) {
     window.bytune = api;
+    // Electron sent the page's window.open() links to the default browser; a Tauri webview opens
+    // nothing. Web links go to the browser here, as they did.
+    installFileDrop();
+    window.open = (url?: string | URL): null => {
+      const href = url ? String(url) : "";
+      if (/^https?:\/\//i.test(href)) send("app:openExternal", href);
+      return null;
+    };
   }
 }

@@ -271,8 +271,18 @@ pub async fn ipc(app: AppHandle, state: State<'_, Arc<AppState>>, channel: Strin
 
         /* ---- canvas / updates (not ported: no Spotify canvas, updates come from the package manager) ---- */
         "canvas:get" => Ok(Value::Null),
-        "updates:state" | "updates:check" | "updates:install" | "updates:restart" => {
-            Ok(json!({ "status": "idle", "current": app.package_info().version.to_string(), "installs": false }))
+        "updates:state" => Ok(json!(crate::updater::state(&app))),
+        "updates:check" => {
+            crate::updater::check(&app, false).await;
+            Ok(Value::Null)
+        }
+        "updates:install" => {
+            crate::updater::install(&app).await;
+            Ok(Value::Null)
+        }
+        "updates:restart" => {
+            crate::updater::restart(&app);
+            Ok(Value::Null)
         }
 
         /* ---- Replay ---- */
@@ -518,7 +528,20 @@ pub async fn ipc(app: AppHandle, state: State<'_, Arc<AppState>>, channel: Strin
 
         /* ---- Rooms: need accounts, not ported ---- */
         "room:current" | "room:leave" => Ok(json!({ "state": null, "me": null, "offsetMs": 0 })),
-        "room:takeInvite" | "room:unstash" => Ok(Value::Null),
+        // Web links from the page (window.open): http(s) only, to the default browser.
+        "app:openExternal" => {
+            let url = arg_str(&args, 0);
+            match url::Url::parse(&url) {
+                Ok(u) if matches!(u.scheme(), "https" | "http") && url.len() <= 4096 => {
+                    app.opener().open_url(u.as_str(), None::<&str>).map_err(|e| e.to_string())?;
+                    Ok(Value::Null)
+                }
+                _ => Err("Only web links open in the browser".into()),
+            }
+        }
+        "room:takeInvite" => Ok(json!(crate::links::take_invite(&app))),
+        "auth:takeOAuthCallbacks" => Ok(json!(crate::links::take_oauth(&app))),
+        "room:unstash" => Ok(Value::Null),
         "room:stash" => Ok(Value::Null),
         c if c.starts_with("room:") => Err("Rooms aren't available in ByTune yet.".into()),
 

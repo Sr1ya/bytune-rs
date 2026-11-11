@@ -16,6 +16,8 @@ use tauri::{AppHandle, Emitter, Manager};
 static QUITTING: AtomicBool = AtomicBool::new(false);
 static FINISHING: AtomicBool = AtomicBool::new(false);
 static EXITING: AtomicBool = AtomicBool::new(false);
+/// Runs on the way out, once everything is saved (an update put in place, then ByTune reopened).
+static ON_EXIT: std::sync::Mutex<Option<Box<dyn FnOnce() + Send>>> = std::sync::Mutex::new(None);
 
 /// True once quitting began: nothing should bring a window back.
 pub fn quitting() -> bool {
@@ -50,6 +52,12 @@ pub fn request(app: &AppHandle) {
     });
 }
 
+/// Quits like `request`, running `last` after every write is on disk and just before the process ends.
+pub fn request_with(app: &AppHandle, last: Box<dyn FnOnce() + Send>) {
+    *ON_EXIT.lock().unwrap() = Some(last);
+    request(app);
+}
+
 /// The page has saved (or ran out of time): flush stats, then end the process.
 pub fn finish(app: &AppHandle) {
     // Only as part of a quit (a stray `app:quitReady` must not end the app).
@@ -78,6 +86,9 @@ fn exit_now() -> ! {
         }
     }
     kill_webkit_children();
+    if let Some(last) = ON_EXIT.lock().ok().and_then(|mut f| f.take()) {
+        last();
+    }
     // SAFETY: _exit(2) ends the process immediately; nothing after it runs.
     #[cfg(unix)]
     unsafe {

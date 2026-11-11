@@ -1501,7 +1501,7 @@ function UpdatesGroup() {
         : status === "available"
           ? {
               title: `Version ${version} is available`,
-              note: u.installs ? `You have version ${current}. It installs right here.` : `You have version ${current}. Get it from bytune.space.`,
+              note: u.installs ? `You have version ${current}. It installs right here.` : `You have version ${current}. Get it from GitHub.`,
               control: <Button kind="primary" onClick={() => void window.bytune?.installUpdate()}>{u.installs ? "Update" : "Download"}</Button>,
             }
           : status === "downloading"
@@ -1517,7 +1517,7 @@ function UpdatesGroup() {
                     title: version ? "Couldn't update" : "Couldn't check for updates",
                     note: u.error ?? "Try again in a moment",
                     control: version
-                      ? <Button onClick={() => window.open("https://bytune.space", "_blank", "noopener")}>Download</Button>
+                      ? <Button onClick={() => window.open("https://github.com/Sr1ya/bytune-rs/releases/latest", "_blank", "noopener")}>Download</Button>
                       : check,
                   }
                 : { title: "Updates", note: `You have version ${current}`, control: check };
@@ -1545,10 +1545,10 @@ function AboutPane() {
       <Group title="Links">
         <Row
           icon={Globe}
-          title="ByTune website"
-          note="bytune.space: downloads, news and help"
+          title="ByTune on GitHub"
+          note="Downloads, release notes and the source code"
           control={<ExternalLink className="st-go" />}
-          onClick={() => window.open("https://bytune.space", "_blank", "noopener")}
+          onClick={() => window.open("https://github.com/Sr1ya/bytune-rs", "_blank", "noopener")}
         />
       </Group>
     </>
