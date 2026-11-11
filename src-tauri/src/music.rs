@@ -727,6 +727,14 @@ fn page_json((rows, continuation): (Vec<SearchRow>, Option<String>)) -> Value {
     json!({ "rows": rows.iter().map(|r| r.to_json()).collect::<Vec<_>>(), "continuation": continuation })
 }
 
+/// A Music service for live tests elsewhere (lyrics' live_sources).
+#[cfg(test)]
+pub fn live_music() -> Music {
+    let dir = std::env::temp_dir().join("bytune-live-test");
+    std::fs::create_dir_all(&dir).unwrap();
+    Music::new(reqwest::Client::builder().gzip(true).brotli(true).build().unwrap(), &dir, None).unwrap()
+}
+
 #[cfg(test)]
 mod live_tests {
     //! Network tests against the real services: `cargo test --lib live -- --ignored --nocapture`.

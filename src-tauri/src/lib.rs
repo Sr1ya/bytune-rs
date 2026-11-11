@@ -14,6 +14,7 @@
 
 mod cloud;
 mod downloads;
+mod han_fold;
 mod innertube;
 mod ipc;
 mod links;
