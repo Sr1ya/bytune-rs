@@ -12,6 +12,7 @@
 //!   pip, tray            mini player window, tray menu
 //! Media keys come from the webview itself, off the page's navigator.mediaSession (MPRIS on Linux).
 
+mod cloud;
 mod downloads;
 mod innertube;
 mod ipc;
@@ -176,14 +177,12 @@ pub fn run() {
 
             // Replay's history flushes every 30 s while it changes (each write is the whole history),
             // and on quit (quit.rs).
-            let s = state.clone();
+            let (h, s) = (handle.clone(), state.clone());
             tauri::async_runtime::spawn(async move {
                 loop {
                     tokio::time::sleep(Duration::from_secs(30)).await;
-                    if let Some(payload) = s.stats.take_dirty_payload() {
-                        if let Err(e) = s.persist.write(stats::HISTORY_STORE, &payload).await {
-                            log::warn!("stats flush failed: {e}");
-                        }
+                    if let Err(e) = cloud::flush_history(&h, &s).await {
+                        log::warn!("stats flush failed: {e}");
                     }
                 }
             });

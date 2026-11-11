@@ -52,25 +52,6 @@ fn main_window(app: &AppHandle) -> Option<tauri::WebviewWindow> {
     app.get_webview_window("main")
 }
 
-/* ---------------- guest profile (accounts aren't ported) ---------------- */
-
-const NO_ACCOUNTS: &str = "Accounts aren't available in ByTune yet. Continue as a guest — your library stays on this computer.";
-
-fn session_info(state: &AppState) -> Value {
-    let profile = state.persist.read("profile");
-    if profile["mode"] == "guest" {
-        json!({ "mode": "guest", "userId": null, "username": null, "displayName": profile["displayName"], "freshInstall": false })
-    } else {
-        json!({ "mode": null, "userId": null, "username": null, "displayName": null, "freshInstall": false })
-    }
-}
-
-fn display_name(v: &Value) -> Option<String> {
-    let name: String = v.as_str()?.split_whitespace().collect::<Vec<_>>().join(" ");
-    let name: String = name.chars().take(40).collect();
-    if name.is_empty() { None } else { Some(name) }
-}
-
 /* ---------------- backup ---------------- */
 
 const DEVICE_LOCAL_SETTINGS: &[&str] = &["downloadDir", "localMusicFolder", "audioSinkId", "lyricsOffset", "closeToTray"];
@@ -526,8 +507,6 @@ pub async fn ipc(app: AppHandle, state: State<'_, Arc<AppState>>, channel: Strin
             st.spotify.match_song(music, &st.persist, song, &arg_str(&args, 1)).await
         }
 
-        /* ---- Rooms: need accounts, not ported ---- */
-        "room:current" | "room:leave" => Ok(json!({ "state": null, "me": null, "offsetMs": 0 })),
         // Web links from the page (window.open): http(s) only, to the default browser.
         "app:openExternal" => {
             let url = arg_str(&args, 0);
@@ -539,45 +518,45 @@ pub async fn ipc(app: AppHandle, state: State<'_, Arc<AppState>>, channel: Strin
                 _ => Err("Only web links open in the browser".into()),
             }
         }
+
+        /* ---- accounts, cloud sync and Rooms: the page's src/cloud/ owns them; these are its backend ---- */
         "room:takeInvite" => Ok(json!(crate::links::take_invite(&app))),
         "auth:takeOAuthCallbacks" => Ok(json!(crate::links::take_oauth(&app))),
-        "room:unstash" => Ok(Value::Null),
-        "room:stash" => Ok(Value::Null),
-        c if c.starts_with("room:") => Err("Rooms aren't available in ByTune yet.".into()),
-
-        /* ---- accounts: local guest profile only ---- */
-        "auth:getSession" => Ok(session_info(&st)),
-        "auth:continueGuest" => {
-            let profile = json!({ "mode": "guest", "displayName": display_name(arg(&args, 0)).or_else(|| st.persist.read("profile")["displayName"].as_str().map(String::from)) });
-            st.persist.write("profile", &profile).await.map_err(err)?;
-            let info = session_info(&st);
-            if let Some(w) = main_window(&app) {
-                let _ = w.eval("window.location.reload()");
-            }
-            Ok(info)
+        "auth:loadSession" => Ok(crate::cloud::load_session(&st)),
+        "auth:saveSession" => {
+            crate::cloud::save_session(&st, arg(&args, 0)).await.map_err(err)?;
+            Ok(Value::Null)
         }
-        "auth:clearGuestProfile" | "auth:signOut" => {
-            st.persist.write("profile", &Value::Null).await.map_err(err)?;
-            if channel == "auth:signOut" {
-                if let Some(w) = main_window(&app) {
-                    let _ = w.eval("window.location.reload()");
-                }
+        "cloud:read" => {
+            let name = arg_str(&args, 0);
+            if !crate::cloud::store_allowed(&name) {
+                return Err("Store not allowed".into());
             }
-            Ok(session_info(&st))
-        }
-        "auth:setDisplayName" | "auth:skipUsername" => {
-            let mut profile = st.persist.read("profile");
-            if profile.is_object() {
-                profile["displayName"] = json!(display_name(arg(&args, 0)));
-                st.persist.write("profile", &profile).await.map_err(err)?;
-                let _ = app.emit("auth:changed", session_info(&st));
+            if name == crate::stats::HISTORY_STORE {
+                crate::cloud::flush_history(&app, &st).await.map_err(err)?;
             }
-            Ok(session_info(&st))
+            Ok(st.persist.read(&name))
         }
-        "auth:usernameAvailable" => Ok(json!({ "available": null, "reason": NO_ACCOUNTS })),
-        "auth:signUp" | "auth:signIn" | "auth:signInGoogle" | "auth:setUsername" => Err(NO_ACCOUNTS.into()),
-        "sync:status" => Ok(json!({ "enabled": false, "state": "off" })),
-        "sync:now" | "sync:backupNow" | "sync:restoreNow" => Err("Cloud sync needs an account, which ByTune doesn't support yet.".into()),
+        "cloud:write" => {
+            let name = arg_str(&args, 0);
+            if !crate::cloud::store_allowed(&name) {
+                return Err("Store not allowed".into());
+            }
+            let data = arg(&args, 1);
+            st.persist.write(&name, data).await.map_err(err)?;
+            match name.as_str() {
+                "library" => st.note_library(if data.is_null() { None } else { Some(data) }),
+                // Replay's history was replaced (a restore, an account switch): drop what memory held,
+                // or its next flush would write the old copy back over it.
+                n if n == crate::stats::HISTORY_STORE => st.stats.reset(),
+                _ => {}
+            }
+            Ok(Value::Null)
+        }
+        "cloud:backup" => {
+            crate::cloud::backup_store(&st, &arg_str(&args, 0), arg(&args, 1)).await.map_err(err)?;
+            Ok(Value::Null)
+        }
 
         /* ---- tray / MPRIS ---- */
         "menu:push-state" => {

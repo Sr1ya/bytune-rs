@@ -16,8 +16,19 @@ import type {
 } from "../types";
 import type { LocalTrack, UpdateState } from "./backend-types";
 
+/** The miniplayer window renders a view onto the main window's state and runs no cloud module. */
+const isMainWindow = typeof window === "undefined" || new URLSearchParams(window.location.search).get("window") !== "pip";
+
+/** Accounts, cloud sync and Rooms run in the main window (src/cloud/), not in the Rust backend. */
+const CLOUD_CHANNEL = /^(auth|sync|room):/;
+const loadCloud = () => import("../cloud");
+
 /** A request/response call: resolves with the handler's value, rejects with its error message. */
 async function call<T = any>(channel: string, ...args: unknown[]): Promise<T> {
+  if (isMainWindow && CLOUD_CHANNEL.test(channel)) {
+    const cloud = await loadCloud();
+    if (!cloud.BACKEND_CHANNELS.has(channel)) return (await cloud.handle(channel, args)) as T;
+  }
   try {
     return (await invoke("ipc", { channel, args })) as T;
   } catch (err) {
@@ -151,7 +162,10 @@ const api = {
       return null;
     }
   },
-  writeData: (name: string, data: unknown) => call("data:write", name, data),
+  // In the main window every store write goes through the cloud module's data queue (and is noted
+  // for cloud sync); the miniplayer writes straight through.
+  writeData: async (name: string, data: unknown) =>
+    isMainWindow ? (await loadCloud()).pageWrite(name, data) : call("data:write", name, data),
   resetData: () => call("app:resetData"),
 
   // Backup export / import, playlist files (native dialogs in Rust)

@@ -34,6 +34,12 @@ if (!isPipWindow) {
         /* the engine may not be up yet */
       }
       try {
+        const { quitCloud } = await import("./cloud");
+        await Promise.race([quitCloud(), new Promise((r) => setTimeout(r, 600))]);
+      } catch {
+        /* quit anyway */
+      }
+      try {
         const { flushPendingWrites } = await import("./lib/persist");
         const { playEventsDelivered } = await import("./lib/playEvents");
         await Promise.race([
@@ -47,6 +53,9 @@ if (!isPipWindow) {
     })();
   });
 }
+
+// Accounts, cloud sync and Rooms (src/cloud/): restored and started with the main window.
+if (!isPipWindow && window.bytune) void import("./cloud").then((cloud) => cloud.startCloud());
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   isPipWindow ? (
