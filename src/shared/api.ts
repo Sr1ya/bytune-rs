@@ -166,7 +166,10 @@ const api = {
   // for cloud sync); the miniplayer writes straight through.
   writeData: async (name: string, data: unknown) =>
     isMainWindow ? (await loadCloud()).pageWrite(name, data) : call("data:write", name, data),
-  resetData: () => call("app:resetData"),
+  resetData: async () => {
+    if (isMainWindow) await (await loadCloud()).resetCloud();
+    return call("app:resetData");
+  },
 
   // Backup export / import, playlist files (native dialogs in Rust)
   backupExport: () => call("backup:export"),

@@ -118,10 +118,10 @@ const STREAM_CLIENTS: &[StreamClient] = &[
     StreamClient::Rp(&[ClientType::Tv]),
 ];
 
-/// The device market (InnerTube `gl`) from the environment: HITUNE_MARKET overrides,
+/// The device market (InnerTube `gl`) from the environment: BYTUNE_MARKET overrides,
 /// then the locale's country (LANG=en_IN.UTF-8 → IN), else YouTube Music's default (US).
 pub fn resolve_market() -> (String, String) {
-    if let Ok(v) = std::env::var("HITUNE_MARKET") {
+    if let Ok(v) = std::env::var("BYTUNE_MARKET") {
         let v = v.trim().to_uppercase();
         if v.len() == 2 && v.chars().all(|c| c.is_ascii_alphabetic()) {
             return (v, "override".into());
@@ -831,13 +831,13 @@ mod live_tests {
         println!("lyrics: source={} word={} lines={} in {:?}", r["source"], r["wordSynced"], r["synced"].as_array().map(|a| a.len()).unwrap_or(0), start.elapsed());
         assert!(!r.is_null());
         let sp = crate::spotify::Spotify::new();
-        let pl = sp.public_playlist(&m.http, "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M").await;
+        let dir = std::env::temp_dir().join("bytune-live-test");
+        let persist = crate::persist::Persist::new(&dir);
+        let pl = sp.public_playlist(&m.http, &persist, "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M").await;
         match pl {
             Ok(p) => {
                 println!("spotify: {} songs={} total={}", p["name"], p["songs"].as_array().unwrap().len(), p["total"]);
                 let s0: crate::spotify::ImportSong = serde_json::from_value(p["songs"][0].clone()).unwrap();
-                let dir = std::env::temp_dir().join("bytune-live-test");
-                let persist = crate::persist::Persist::new(&dir);
                 let hit = sp.match_song(&m, &persist, s0.clone(), "").await.unwrap();
                 println!("match {} — {} → {} — {}", s0.title, s0.artist, hit["title"], hit["artist"]);
             }

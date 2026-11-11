@@ -68,6 +68,51 @@ pub async fn save_session(st: &AppState, session: &Value) -> anyhow::Result<()> 
     st.persist.write(PLAIN_STORE, &plain).await
 }
 
+/* ---------------- other secrets (a Spotify session) ---------------- */
+
+/// A secret kept for later: in the OS keychain under `name` ("keyring:<name>" is stored in its place),
+/// or, without a keychain, as "plain:<value>" — ByTune's safeStorage `enc:` / `plain:` scheme.
+pub fn seal_secret(name: &str, value: &str) -> String {
+    if value.is_empty() {
+        return String::new();
+    }
+    if let Ok(entry) = keyring::Entry::new(KEYRING_SERVICE, name) {
+        if entry.set_password(value).is_ok() {
+            return format!("keyring:{name}");
+        }
+    }
+    format!("plain:{value}")
+}
+
+pub fn open_secret(sealed: &str) -> String {
+    if let Some(name) = sealed.strip_prefix("keyring:") {
+        return keyring::Entry::new(KEYRING_SERVICE, name).and_then(|e| e.get_password()).unwrap_or_default();
+    }
+    sealed.strip_prefix("plain:").unwrap_or("").to_string()
+}
+
+pub fn forget_secret(sealed: &str) {
+    if let Some(name) = sealed.strip_prefix("keyring:") {
+        if let Ok(entry) = keyring::Entry::new(KEYRING_SERVICE, name) {
+            let _ = entry.delete_credential();
+        }
+    }
+}
+
+/// Whose data is on this computer (src/cloud/transition.ts keeps it): an account's id, or "guest".
+pub fn current_owner(st: &AppState) -> String {
+    if let Some(owner) = st.persist.read("data-owner")["owner"].as_str() {
+        return owner.to_string();
+    }
+    let profile = st.persist.read("profile");
+    if profile["mode"] == "account" {
+        if let Some(id) = profile["userId"].as_str() {
+            return id.to_string();
+        }
+    }
+    st.persist.read("sync-meta")["lastUserId"].as_str().unwrap_or("guest").to_string()
+}
+
 /* ---------------- backups ---------------- */
 
 /// A copy of a store about to be replaced by a sync, under data/backups; the newest few are kept.

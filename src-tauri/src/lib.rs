@@ -12,6 +12,7 @@
 //!   pip, tray            mini player window, tray menu
 //! Media keys come from the webview itself, off the page's navigator.mediaSession (MPRIS on Linux).
 
+mod canvas;
 mod cloud;
 mod downloads;
 mod han_fold;

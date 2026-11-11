@@ -90,6 +90,14 @@ export async function quitCloud(): Promise<void> {
   await sync.flushMeta();
 }
 
+/** "Reset app data": leave any room and sign out here first, as ByTune's reset did. */
+export async function resetCloud(): Promise<void> {
+  freezePageWrites();
+  await rooms.leaveRoom().catch(() => undefined);
+  await auth.signOut().catch(() => undefined);
+  await sync.resetSyncState().catch(() => undefined);
+}
+
 /* ---------------- account switches ---------------- */
 
 function reloadSoon(): void {

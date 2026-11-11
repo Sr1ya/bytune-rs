@@ -8,4 +8,4 @@ export const ACCOUNTS = true;
 /** Listen-together Rooms (need accounts). */
 export const ROOMS = true;
 /** Connecting the listener's own Spotify account (public playlist links still import). */
-export const SPOTIFY_CONNECT = false;
+export const SPOTIFY_CONNECT = true;

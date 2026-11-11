@@ -250,8 +250,12 @@ pub async fn ipc(app: AppHandle, state: State<'_, Arc<AppState>>, channel: Strin
             st.library.forget_opened(&st.persist, &id).await.map(|l| json!(l)).map_err(err)
         }
 
-        /* ---- canvas / updates (not ported: no Spotify canvas, updates come from the package manager) ---- */
-        "canvas:get" => Ok(Value::Null),
+        /* ---- canvas (canvas.rs) and updates (updater.rs) ---- */
+        "canvas:get" => {
+            let q = arg(&args, 0);
+            let field = |k: &str| q[k].as_str().filter(|v| v.len() <= 500).unwrap_or("").to_string();
+            Ok(crate::canvas::canvas_for(&st, &field("title"), &field("artist"), Some(field("album").as_str()).filter(|a| !a.is_empty())).await)
+        }
         "updates:state" => Ok(json!(crate::updater::state(&app))),
         "updates:check" => {
             crate::updater::check(&app, false).await;
@@ -367,6 +371,7 @@ pub async fn ipc(app: AppHandle, state: State<'_, Arc<AppState>>, channel: Strin
             Ok(Value::Null)
         }
         "app:resetData" => {
+            st.spotify.forget_everyone(&app, &st).await;
             st.downloads().reset();
             st.stats.reset();
             st.library.reset();
@@ -493,11 +498,30 @@ pub async fn ipc(app: AppHandle, state: State<'_, Arc<AppState>>, channel: Strin
             if link.len() > 500 {
                 return Err("That isn't a link to a Spotify playlist.".into());
             }
-            st.spotify.public_playlist(&music.http, &link).await
+            st.spotify.public_playlist(&music.http, &st.persist, &link).await
         }
-        "spotify:status" | "spotify:disconnect" => Ok(json!({ "connected": false })),
-        "spotify:connect" | "spotify:playlists" | "spotify:playlist" => {
-            Err("Connecting a Spotify account isn't available in ByTune yet. Paste a public playlist link instead.".into())
+        "spotify:status" => Ok(st.spotify.status(&st)),
+        "spotify:connect" => Ok(st.spotify.connect(&app, &music.http, &st).await),
+        "spotify:disconnect" => {
+            st.spotify.disconnect(&app, &st).await;
+            Ok(json!(true))
+        }
+        "spotify:playlists" => st.spotify.playlists(&music.http, &st).await,
+        "spotify:playlist" => {
+            let id = arg_str(&args, 0);
+            let ok = id == crate::spotify::LIKED_ID || (id.len() == 22 && id.chars().all(|c| c.is_ascii_alphanumeric()));
+            if !ok {
+                return Err("Not a Spotify playlist".into());
+            }
+            st.spotify.playlist(&music.http, &st, &id).await
+        }
+        // A guest who creates an account brings their Spotify along (src/cloud/index.ts).
+        "spotify:moveGuest" => {
+            let owner = arg_str(&args, 0);
+            if owner.len() == 36 && owner.chars().all(|c| c.is_ascii_hexdigit() || c == '-') {
+                st.spotify.move_guest(&st, &owner).await;
+            }
+            Ok(Value::Null)
         }
         "match:song" => {
             let song: crate::spotify::ImportSong = serde_json::from_value(arg(&args, 0).clone()).map_err(|_| "Not a song")?;
