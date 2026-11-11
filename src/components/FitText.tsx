@@ -10,6 +10,8 @@
  * whenever any of the text is hidden — or the title was shortened (`full`) —
  * the whole of it is the hover tooltip.
  */
+import { useFullMotion } from "../lib/fullMotion";
+import { FitText as FullFitText } from "./full/FitText";
 import { useLayoutEffect, useRef } from "react";
 import { motionResting, onMotionRest } from "../lib/motionRest";
 
@@ -64,7 +66,7 @@ if (typeof document !== "undefined") {
   document.fonts?.addEventListener?.("loadingdone", () => runAll(new Set(measures.values())));
 }
 
-export function FitText({
+function LiteFitText({
   text,
   full,
   className = "",
@@ -182,4 +184,10 @@ export function FitText({
       </span>
     </span>
   );
+}
+
+/** The original marquee (looping) where full animations are on (lib/fullMotion), else the lighter one. */
+export function FitText(props: React.ComponentProps<typeof LiteFitText>) {
+  const { followsPlayback, ...rest } = props;
+  return useFullMotion() ? <FullFitText {...rest} /> : <LiteFitText {...props} followsPlayback={followsPlayback} />;
 }

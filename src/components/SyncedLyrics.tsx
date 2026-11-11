@@ -20,6 +20,8 @@
  * lines fade on layers of their own, the list glides as one transform, the glow and the soft focus
  * are text-shadows painted once, and the sweep writes one word's style a frame.
  */
+import { useFullMotion } from "../lib/fullMotion";
+import { LyricsView as FullLyricsView } from "./full/SyncedLyrics";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { getPlaybackPosition } from "../lib/audio";
 import { visibleLyricLines } from "../lib/lyricsLines";
@@ -211,8 +213,14 @@ const LyricLine = memo(function LyricLine({
   // Sung lines sink away a touch harder than upcoming ones. The far ones are nearly gone, which
   // is what lets the panel's edges cut them without a mask.
   const opacity = [1, 0.5, 0.3, 0.18, 0.1, 0.05][d] * (depth < 0 ? 0.7 : 1);
+  // The original's depth also shrinks lines away from the live one. A scale on the line's own layer
+  // is composited (the drawn line is scaled, not redrawn), so it eases with the opacity.
+  const scale = [1, 0.975, 0.955, 0.94, 0.93, 0.93][d];
+  // The original's soft focus deepens with distance (blur 1.2 to 4px). The soft text-shadow is
+  // painted with the line, so its radius steps once per line change and never transitions.
+  const softness = [0, 0.5, 0.8, 1.1, 1.35, 1.35][d];
   // The lines whose depth is about to change keep a layer; the rest of the song does not.
-  const willChange = Math.abs(depth) < DEPTH_REACH ? "opacity" : undefined;
+  const willChange = Math.abs(depth) < DEPTH_REACH ? "opacity, transform" : undefined;
 
   // The sweep window is the line's own slice of the song: from its start to
   // the next line (or the last word's end, whichever is sooner). Word spans
@@ -250,7 +258,13 @@ const LyricLine = memo(function LyricLine({
       onClick={() => onSeek(line.time)}
       title="Jump here"
       className={`lyric-line block w-full text-left text-ink-hi ${soft && !active ? "is-soft" : ""}`}
-      style={{ opacity, willChange }}
+      style={{
+        opacity,
+        willChange,
+        transform: scale === 1 ? undefined : `scale(${scale})`,
+        transformOrigin: "left center",
+        "--lyric-soft-k": softness,
+      } as React.CSSProperties}
     >
       {spans ? (
         <WordLine words={line.words!} spans={spans} variant={variant} glow={glow} offset={offset} />
@@ -264,7 +278,7 @@ const LyricLine = memo(function LyricLine({
   );
 });
 
-export function LyricsView({
+function LiteLyricsView({
   lyrics,
   loading,
   large = false,
@@ -498,4 +512,9 @@ export function LyricsView({
       </pre>
     </div>
   );
+}
+
+/** The original lyrics view where full animations are on (lib/fullMotion), else the lighter one. */
+export function LyricsView(props: React.ComponentProps<typeof LiteLyricsView>) {
+  return useFullMotion() ? <FullLyricsView {...props} /> : <LiteLyricsView {...props} />;
 }

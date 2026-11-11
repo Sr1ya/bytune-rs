@@ -633,13 +633,16 @@ body.bytune-dragging * {
 }
 
 /* The list of lines is a layer of its own: the glide to the next line is a transform on it,
-   composited without repainting a line (SyncedLyrics). */
-.lyrics-lines {
+   composited without repainting a line (SyncedLyrics). The original view (full animations) scrolls
+   instead and takes a layer only while the room moves (.fs-moving, below). */
+html:not(.full-motion) .lyrics-lines {
   will-change: transform;
 }
 /* A lyric line's depth (SyncedLyrics LyricLine): its opacity eases to the new distance. */
 .lyric-line {
-  transition: opacity 500ms ease-out;
+  transition:
+    opacity 500ms ease-out,
+    transform 500ms ease-out;
 }
 /* "Blur unfocused lyrics": the words are drawn as their own soft shadow, painted with the text.
    (A filter: blur() put every line on a surface that was blurred again whenever anything near it
@@ -647,7 +650,7 @@ body.bytune-dragging * {
 .lyric-line.is-soft,
 .lyric-line.is-soft * {
   color: transparent;
-  text-shadow: 0 0 var(--lyric-soft, 3px) rgb(var(--ink-hi));
+  text-shadow: 0 0 calc(var(--lyric-soft, 3px) * var(--lyric-soft-k, 1)) rgb(var(--ink-hi));
 }
 /* The live line's glow: a text-shadow, which paints with the text. (A drop-shadow filter put the
    line on a surface of its own that was filtered again for every frame of the word sweep.) */
@@ -1190,6 +1193,21 @@ input[type="range"].slider.slider-dot::-webkit-slider-thumb {
   outline-offset: 2px;
 }
 
+/* Hero palette wash layer: the incoming gradient fades in over the previous
+   one so a track change never hard-cuts. Old layer is reaped by the component
+   once the fade completes. */
+@keyframes mp-hero-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.mp-hero-layer {
+  animation: mp-hero-in 380ms var(--ease-enter) both;
+}
+
 /* Compact seek slider — a 3px hairline in a 12px hit area; the 10px thumb
    only surfaces on hover/press/focus, like the main bar's scrubber. */
 input[type="range"].slider.mp-slider {
@@ -1401,6 +1419,15 @@ input[type="range"].slider.mp-slider:active::-webkit-slider-thumb {
   }
 }
 
+@keyframes spin-slow {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.spin-slow {
+  animation: spin-slow 14s linear infinite;
+}
+
 /* ---------- text helpers ---------- */
 .micro-label {
   @apply text-[11px] font-semibold uppercase tracking-[0.18em];
@@ -1423,6 +1450,30 @@ input[type="range"].slider.mp-slider:active::-webkit-slider-thumb {
 }
 ::-moz-focus-inner {
   border: 0;
+}
+
+/* Window maximize / restore settle. The OS zooms the window bitmap while the
+   layout snaps underneath to the new size, and that seam reads as a jarring
+   reflow. A short ease-out "settle" on the shell (a hair of scale and fade,
+   applied when the maximized state flips) masks the snap so the whole move
+   reads as one smooth motion. Removed on animationend so no transform lingers
+   over the fixed overlays; skipped under reduced animation, and where full
+   animations are off (App.tsx, lib/fullMotion). */
+@keyframes win-settle {
+  from {
+    opacity: 0.94;
+    transform: scale(0.988);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.win-settle {
+  animation: win-settle 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+html.reduce-motion .win-settle {
+  animation: none;
 }
 
 /* ---------- appearance settings ----------
@@ -3487,6 +3538,9 @@ html.reduce-motion .ob-way-go {
   animation: fs-enter 280ms var(--ease-enter) both;
 }
 .fs-d1 { animation-delay: 40ms; }
+.fs-d2 { animation-delay: 90ms; }
+.fs-d3 { animation-delay: 140ms; }
+.fs-d4 { animation-delay: 190ms; }
 
 /* Exit: the room settles back — quick fade with a whisper of contraction.
    Applied to the overlay root while the OS leaves fullscreen underneath. */
@@ -3523,6 +3577,170 @@ html.reduce-motion .ob-way-go {
   animation: fs-bg-in 1100ms ease-out both;
 }
 
+/* ---------- full animations (lib/fullMotion): ByTune's original room ----------
+   On Windows and macOS always; on Linux when Settings > Full animations is on. */
+
+/* The hero artwork breathes while audio plays — a barely-there scale on a
+   slow loop, no bounce, no rotation. Pausing removes the animation; the
+   wrapper's transition settles the scale back smoothly. Lives on its own
+   wrapper so it never fights the fs-enter entrance for the transform. */
+@keyframes fs-art-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.014);
+  }
+}
+.fs-art-wrap {
+  transition: transform 1100ms var(--ease-enter);
+}
+.fs-art-wrap.fs-art-breathe {
+  animation: fs-art-breathe 5.2s ease-in-out infinite;
+}
+
+/* Ambient visualizer — a thin symmetric waveform. Bars dance on staggered
+   loops (per-bar duration + negative delay via --dur/--delay) only while
+   audio plays; removing .is-playing settles every bar to its resting height
+   (--rest) through the transition instead of freezing mid-flight. */
+@keyframes fs-viz-dance {
+  0%,
+  100% {
+    transform: scaleY(0.22);
+  }
+  16% {
+    transform: scaleY(0.52);
+  }
+  34% {
+    transform: scaleY(0.9);
+  }
+  52% {
+    transform: scaleY(0.36);
+  }
+  70% {
+    transform: scaleY(1);
+  }
+  86% {
+    transform: scaleY(0.44);
+  }
+}
+.fs-viz {
+  -webkit-mask-image: linear-gradient(to right, transparent, black 18%, black 82%, transparent);
+  mask-image: linear-gradient(to right, transparent, black 18%, black 82%, transparent);
+}
+.fs-viz-bar {
+  width: 3px;
+  height: 100%;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.2);
+  transform: scaleY(var(--rest, 0.14));
+  transform-origin: center;
+  transition: transform 900ms var(--ease-enter), background-color 900ms ease;
+}
+.fs-viz.is-playing .fs-viz-bar {
+  background: rgb(255 255 255 / 0.32);
+  animation: fs-viz-dance var(--dur, 2.6s) ease-in-out var(--delay, 0s) infinite;
+}
+
+/* Fullscreen idle, original: while music plays and the pointer rests, the
+   controls fade, the cursor goes and the room re-centres on the whole screen.
+   The header and the play bar give up their height, the switch and the like
+   pill close up, the cover grows 15%, and the lyrics run from top to bottom.
+   A move brings it all back. Every size moves on one clock, so the lyrics'
+   anchor, re-measured each frame, never trails the cover. */
+html.full-motion .fs-chrome {
+  transition:
+    opacity 200ms ease-out,
+    height 420ms var(--ease-enter),
+    margin 420ms var(--ease-enter);
+}
+html.full-motion .fs-art {
+  width: min(38vh, 32vw, 480px);
+  transition: width 420ms var(--ease-enter);
+}
+html.full-motion .fs-idle {
+  cursor: none;
+}
+html.full-motion .fs-idle .fs-chrome {
+  opacity: 0;
+  transition:
+    opacity 320ms ease,
+    height 900ms cubic-bezier(0.45, 0, 0.2, 1),
+    margin 900ms cubic-bezier(0.45, 0, 0.2, 1);
+}
+html.full-motion .fs-idle .fs-head {
+  height: 16px;
+}
+html.full-motion .fs-idle .fs-switch,
+html.full-motion .fs-idle .fs-like,
+html.full-motion .fs-idle .fs-dock {
+  height: 0;
+  margin: 0;
+}
+html.full-motion .fs-idle .fs-art {
+  width: min(43.7vh, 36.8vw, 552px);
+  transition: width 900ms cubic-bezier(0.45, 0, 0.2, 1);
+}
+/* Moving, the lyric lines get a layer of their own, so the per-frame shift
+   is a layer offset rather than a repaint of every blurred line. */
+html.full-motion .fs-moving .lyrics-lines {
+  will-change: transform;
+}
+
+/* ---------- lighter room (full animations off, Linux) ----------
+   The original's motion, rebuilt for WebKitGTK: every loop below only moves or fades a layer of
+   its own whose drawn content never changes, so each frame is a composite, not a repaint. */
+
+/* The cover breathes while audio plays (the original's fs-art-breathe, same curve). */
+html:not(.full-motion) .fs-breathe {
+  will-change: transform;
+  transition: transform 1100ms var(--ease-enter);
+}
+html:not(.full-motion) .fs-breathe.is-breathing {
+  animation: fs-art-breathe 5.2s ease-in-out infinite;
+}
+/* The colour wash drifts (the original's animate-drift on the same layer). Rests with playback. */
+html:not(.full-motion) .fs-drift {
+  will-change: transform;
+  animation: drift 8s ease-in-out infinite;
+}
+html.playback-idle:not(.full-motion) .fs-drift {
+  animation-play-state: paused;
+}
+/* The visualizer: the original's bars and timings, each bar its own layer (NowPlaying
+   LayerVisualizer). Colour changes would repaint, so the playing brightness is an opacity on the row. */
+.fs-lviz {
+  opacity: 0.625; /* 0.2 / 0.32: resting bars as dim as the original's */
+  transition: opacity 900ms ease;
+}
+.fs-lviz.is-playing {
+  opacity: 1;
+}
+.fs-lviz-bar {
+  width: 3px;
+  height: 100%;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.32);
+  transform: scaleY(var(--rest, 0.14));
+  transform-origin: center;
+  will-change: transform;
+  transition: transform 900ms var(--ease-enter);
+}
+.fs-lviz.is-playing .fs-lviz-bar {
+  animation: fs-viz-dance var(--dur, 2.6s) ease-in-out var(--delay, 0s) infinite;
+}
+/* Idle, the cover grows 15% as in the original: a scale on its layer instead of a new width, grown
+   from its bottom edge into the space the faded header leaves, so nothing is laid out again. */
+html:not(.full-motion) .fs-art {
+  transform-origin: center bottom;
+  will-change: transform;
+  transition: transform 420ms var(--ease-enter);
+}
+html:not(.full-motion) .fs-idle .fs-art {
+  transform: scale(1.15);
+  transition: transform 900ms cubic-bezier(0.45, 0, 0.2, 1);
+}
 /* No loops in this room. The cover's "breathing" scale, the backdrop's drift and the 32-bar
    decorative visualizer each ran forever, and WebKitGTK repaints and recomposites the full-screen
    window for every frame of any running animation: together they held this view at ~3 fps with
@@ -3534,25 +3752,30 @@ html.reduce-motion .ob-way-go {
    fade and the cursor goes; a move brings them back. Opacity and transform only: nothing changes
    size, so no frame of it lays the room out again (the old version animated heights and the
    cover's width, re-measuring the lyrics on every frame). The header, the switch and the like
-   pill fade where they are; the play bar also slides off the bottom edge, and the room drifts
-   down a little into the space it leaves.
+   pill fade where they are; the play bar also slides off the bottom edge.
    A transition is taken from the state it ends in: the base rules carry the quick wake (the bar
    is there by the time a click lands), the .fs-idle rules the slower settle. */
-html.np-open .shell-under {
+html.np-open:not(.full-motion) .shell-under {
   visibility: hidden;
 }
-.fs-chrome {
+/* Measured frame by frame (WebKitGTK, 3490x1964), the controls hiding and coming back:
+   - The controls keep layers of their own all the time (will-change): promoted when a fade began,
+     they were painted in its first frame and the hide opened on a 210-260 ms frame.
+   - The room itself does not move. Sliding it made WebKitGTK give the whole room a layer for the
+     slide (a full-screen paint as it began) and drop it when the slide ended (another): frames of
+     140-230 ms as the controls hid and 200-300 ms as they came back. The original never moved it.
+   - The fade-in takes 320 ms: at 200 ms, with the frame or two the wake itself takes, only three
+     or four frames of it were drawn and it opened already half in. Now seven to eleven are. */
+html:not(.full-motion) .fs-chrome {
+  will-change: opacity, transform;
   transition:
-    opacity 200ms ease-out,
-    transform 260ms var(--ease-enter);
+    opacity 320ms ease-out,
+    transform 420ms var(--ease-enter);
 }
-.fs-art {
+html:not(.full-motion) .fs-art {
   width: min(38vh, 32vw, 480px);
 }
-.fs-body {
-  transition: transform 260ms var(--ease-enter);
-}
-.fs-idle {
+html:not(.full-motion) .fs-idle {
   cursor: none;
 }
 /* Over everything while idle: nothing under the hidden cursor stays hovered
@@ -3563,19 +3786,28 @@ html.np-open .shell-under {
   inset: 0;
   z-index: 50;
 }
-.fs-idle .fs-chrome {
+/* The lighter room keeps that shield in place, letting clicks through while awake: adding and
+   removing a box over every layer made WebKitGTK rebuild its layer tree on each wake. */
+html:not(.full-motion) .np-root::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+}
+html:not(.full-motion) .np-root.fs-idle::after {
+  pointer-events: auto;
+}
+html:not(.full-motion) .fs-idle .fs-chrome {
   opacity: 0;
   transition:
     opacity 320ms ease,
     transform 420ms cubic-bezier(0.45, 0, 0.2, 1);
 }
-.fs-idle .fs-dock {
+html:not(.full-motion) .fs-idle .fs-dock {
   transform: translateY(24px);
 }
-.fs-idle .fs-body {
-  transform: translateY(16px);
-  transition: transform 420ms cubic-bezier(0.45, 0, 0.2, 1);
-}
+
 
 /* ---------- trackpad swipe arrow ----------
    Chrome's history arrow (SwipeArrow, lib/swipeNav): out of the panel's edge
@@ -5343,6 +5575,25 @@ html.reduce-motion .fit-text {
   }
 }
 
+/* Full animations: the flame burns for as long as the streak is lit, as in the original. */
+html.full-motion .fire.is-lit .fire-body {
+  animation:
+    fire-pop 0.7s cubic-bezier(0.3, 1.4, 0.5, 1) var(--fire-at) both,
+    fire-rock 1.3s ease-in-out calc(var(--fire-at) + 0.7s) infinite;
+}
+html.full-motion .fire.is-lit .fire-outer {
+  animation: fire-boil-outer 0.48s steps(1, end) calc(var(--fire-at) + 0.7s) infinite;
+}
+html.full-motion .fire.is-lit .fire-inner {
+  animation: fire-boil-inner 0.48s steps(1, end) calc(var(--fire-at) + 0.86s) infinite;
+}
+html.full-motion .fire.is-lit .fire-core {
+  animation: fire-bob 0.32s ease-in-out calc(var(--fire-at) + 0.7s) infinite alternate;
+}
+html.full-motion .fire.is-lit .fire-spark {
+  animation: fire-spark 2.4s ease-out infinite;
+}
+
 /* Decorative motion rests when nobody is served by it (lib/motionRest): WebKitGTK redraws the page on
    the main thread for every frame of every running animation. Minimized or hidden, nothing moves. */
 html.app-asleep *,
@@ -5351,7 +5602,7 @@ html.app-asleep *::after {
   animation-play-state: paused !important;
 }
 /* Paused, the playing row keeps its glow but stops breathing (a 30px blur re-filtered every frame). */
-html.playback-idle .tl-playing::before {
+html.playback-idle:not(.full-motion) .tl-playing::before {
   animation: none;
 }
 

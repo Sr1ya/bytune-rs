@@ -13,6 +13,7 @@
  * button leave Settings in one step, coming back from a page opened here lands on the category you
  * left, and a fresh open lands on Account.
  */
+import { motionCostly } from "../lib/fullMotion";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { ACCOUNTS, SPOTIFY_CONNECT } from "../lib/features";
 import {
@@ -63,6 +64,7 @@ import {
   Volume2,
   VolumeX,
   Wifi,
+  Wand2,
   X,
 } from "lucide-react";
 import { DOWNLOAD_QUALITY_LABEL, LOUDNESS_LABEL, STREAM_QUALITY_LABEL, useSettings } from "../stores/settings";
@@ -1173,6 +1175,14 @@ function DisplayPane() {
           note="Cut crossfades and motion through the app"
           toggle={{ checked: s.reduceAnimation, onChange: s.setReduceAnimation }}
         />
+        {motionCostly && (
+          <Row
+            icon={Wand2}
+            title="Full animations"
+            note="ByTune's original motion: breathing cover, visualizer, lyric blur. Heavy on Linux"
+            toggle={{ checked: s.fullAnimations, onChange: s.setFullAnimations, disabled: s.reduceAnimation }}
+          />
+        )}
         <Row
           icon={Droplets}
           title="Reduce dynamic blur"

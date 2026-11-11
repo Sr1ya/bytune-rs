@@ -25,7 +25,9 @@
  * used, kept verbatim so the window behavior (Esc, rapid toggles, reduced
  * motion) is untouched.
  */
-import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { useFullMotion } from "../lib/fullMotion";
+import { NowPlaying as FullNowPlaying } from "./full/NowPlaying";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from "react";
 import { ChevronDown, Heart, Music2 } from "lucide-react";
 import { PlayerBar } from "./PlayerBar";
 import { QueuePanel } from "./RightRail";
@@ -88,7 +90,7 @@ function FsBackdropLayer({
         />
       )}
       <div
-        className="absolute -inset-[20%]"
+        className="fs-drift absolute -inset-[20%]"
         style={{
           background: `radial-gradient(42% 44% at 22% 22%, rgb(${palette.accent} / ${boost ? 0.24 : 0.15}), transparent 66%),
                        radial-gradient(38% 40% at 80% 74%, rgb(${palette.wash} / ${boost ? 0.28 : 0.18}), transparent 64%)`,
@@ -229,7 +231,7 @@ function FsLyrics({
 
 /* ================================================================ the view */
 
-export function NowPlaying() {
+function LiteNowPlaying() {
   const open = useUI((s) => s.nowPlayingOpen);
   const close = useUI((s) => s.toggleNowPlaying);
 
@@ -458,7 +460,9 @@ export function NowPlaying() {
                     filter: "blur(48px)",
                   }}
                 />
-                <div>
+                {/* Breathing (index.css .fs-breathe): a scale on a layer of its own, so the GPU
+                    scales the drawn cover and nothing is repainted. */}
+                <div className={`fs-breathe ${playing ? "is-breathing" : ""}`}>
                   <div
                     ref={artRef}
                     {...heroDrag.props}
@@ -522,6 +526,10 @@ export function NowPlaying() {
                   </button>
                 </div>
               </div>
+
+              <div className="mt-7 w-full flex justify-center fs-enter fs-d2">
+                <LayerVisualizer playing={playing} />
+              </div>
             </div>
 
             {/* RIGHT — the mode switch over the existing lyrics / queue views.
@@ -556,4 +564,49 @@ export function NowPlaying() {
       </div>
     </div>
   );
+}
+
+/* ============================================================ visualizer */
+
+const VIZ_BARS = 32;
+
+/**
+ * The original's ambient visualizer, built so WebKitGTK only composites it: each bar is a layer of
+ * its own whose content never changes, and only its scaleY moves (index.css .fs-lviz). The
+ * original faded the row's ends with a mask-image, which repaints the whole row every frame; here
+ * each bar carries the mask's value at its place as a fixed opacity instead.
+ *
+ * Measured at 3490x1964: the costliest effect of the Linux room, ~5 fps and roughly twice the
+ * dropped frames. A 30 fps <canvas> was tried in its place and cost more (32-46 fps on its own):
+ * each redraw repaints the canvas inside the room's layers.
+ */
+function LayerVisualizer({ playing }: { playing: boolean }) {
+  const bars = useMemo(
+    () =>
+      Array.from({ length: VIZ_BARS }, (_, i) => {
+        const r1 = ((i * 137) % 101) / 101;
+        const r2 = ((i * 61) % 97) / 97;
+        const x = (i + 0.5) / VIZ_BARS; // the bar's place along the row, 0..1
+        const edge = Math.min(1, Math.min(x, 1 - x) / 0.18); // the original mask: 0 at the ends, full by 18%
+        return {
+          dur: `${(2.2 + r1 * 1.6).toFixed(2)}s`,
+          delay: `${(-r2 * 3).toFixed(2)}s`,
+          rest: (0.12 + r1 * 0.1).toFixed(2),
+          fade: edge.toFixed(3),
+        };
+      }),
+    [],
+  );
+  return (
+    <div aria-hidden className={`fs-lviz flex h-9 w-[min(300px,72%)] items-center justify-center gap-[5px] ${playing ? "is-playing" : ""}`}>
+      {bars.map((b, i) => (
+        <span key={i} className="fs-lviz-bar" style={{ "--dur": b.dur, "--delay": b.delay, "--rest": b.rest, opacity: b.fade } as CSSProperties} />
+      ))}
+    </div>
+  );
+}
+
+/** The original full-screen room where full animations are on (lib/fullMotion), else the lighter one. */
+export function NowPlaying() {
+  return useFullMotion() ? <FullNowPlaying /> : <LiteNowPlaying />;
 }

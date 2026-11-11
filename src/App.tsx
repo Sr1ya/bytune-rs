@@ -13,6 +13,7 @@ import { Toasts } from "./components/Toasts";
 import { TopBar } from "./components/TopBar";
 import { engineBoot } from "./lib/audio";
 import { installMotionRest } from "./lib/motionRest";
+import { fullMotion, useFullMotion } from "./lib/fullMotion";
 import { initAutoplay } from "./lib/autoplay";
 import { setAmbientFromArtwork } from "./lib/ambient";
 import { listenForDownloadProgress } from "./lib/downloads";
@@ -255,6 +256,11 @@ function useAppearance(): void {
   const reduceAnimation = useSettings((s) => s.reduceAnimation);
   const reduceDynamicBlur = useSettings((s) => s.reduceDynamicBlur);
   const liquidGlass = useSettings((s) => s.liquidGlass);
+  const full = useFullMotion();
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("full-motion", full);
+  }, [full]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -318,6 +324,20 @@ export default function App() {
   const viewScrollRef = useRef<HTMLDivElement | null>(null);
   const session = useSession();
   const panelDrop = usePanelDrop();
+
+  // Window maximize / restore settle (index.css .win-settle): a hair of scale and fade masks the
+  // layout snapping to the new size. Full animations only (lib/fullMotion). The class removes
+  // itself on animationend so no transform lingers over the fixed overlays.
+  useEffect(() => {
+    const off = window.bytune?.onMaximizeChange(() => {
+      const el = shellRef.current;
+      if (!el || !fullMotion() || document.documentElement.classList.contains("reduce-motion")) return;
+      el.classList.remove("win-settle");
+      void el.offsetWidth; // restart the animation on rapid toggles
+      el.classList.add("win-settle");
+    });
+    return off;
+  }, []);
 
   // Back/forward land the user at the scroll they left the view at. Runs as a
   // layout effect so the offset applies before the first paint of the restored
@@ -427,6 +447,9 @@ export default function App() {
   return (
     <div
       ref={shellRef}
+      onAnimationEnd={(e) => {
+        if (e.animationName === "win-settle") e.currentTarget.classList.remove("win-settle");
+      }}
       className="h-screen flex flex-col ambient-root text-ink overflow-hidden select-none origin-center"
     >
       {/* display: contents, so the layout is the shell's own; the box only lets full-screen Now

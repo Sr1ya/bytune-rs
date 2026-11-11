@@ -6,6 +6,8 @@
  * away. With nothing playing yet, Home glows with the cover it leads with, so a first visit is lit
  * too. Not on the artist page (its hero is its own artwork) or Settings.
  */
+import { useFullMotion } from "../lib/fullMotion";
+import { CoverGlow as FullCoverGlow } from "./full/CoverGlow";
 import { useEffect, useState } from "react";
 import { glowBrightness } from "../lib/coverColor";
 import { useCoverRead } from "../lib/palette";
@@ -37,7 +39,7 @@ function GlowLayer({ url, out, onReady }: { url: string; out: boolean; onReady: 
   return <div className={`cover-glow-art${out ? " cover-glow-out" : ""}`} style={{ backgroundImage: `url(${JSON.stringify(art)})` }} />;
 }
 
-export function CoverGlow() {
+function LiteCoverGlow() {
   const viewName = useUI((s) => s.view.name);
   const tintThumb = useUI((s) => s.tintThumb);
   const playingThumb = usePlayer((s) => s.queue[s.index]?.thumb ?? null);
@@ -81,4 +83,10 @@ export function CoverGlow() {
       <div className="cover-glow-grain" />
     </div>
   );
+}
+
+/** The original glow (a live CSS blur) where full animations are on (lib/fullMotion), else the
+    pre-blurred one. */
+export function CoverGlow() {
+  return useFullMotion() ? <FullCoverGlow /> : <LiteCoverGlow />;
 }

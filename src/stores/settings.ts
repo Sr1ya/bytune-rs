@@ -69,6 +69,8 @@ interface SettingsState {
 
   /* Appearance */
   reduceAnimation: boolean;
+  /** Linux only: ByTune's original animations, loops and live blurs included (lib/fullMotion) */
+  fullAnimations: boolean;
   reduceDynamicBlur: boolean;
   liquidGlass: boolean;
   fullBleedArtwork: boolean;
@@ -111,6 +113,7 @@ interface SettingsState {
   setLoudnessLevel(level: LoudnessLevel): void;
   setMatchLanguage(language: MatchLanguage | ""): void;
   setReduceAnimation(v: boolean): void;
+  setFullAnimations(v: boolean): void;
   setReduceDynamicBlur(v: boolean): void;
   setLiquidGlass(v: boolean): void;
   setFullBleedArtwork(v: boolean): void;
@@ -151,6 +154,7 @@ export const useSettings = create<SettingsState>()(
       matchLanguage: "",
 
       reduceAnimation: false,
+      fullAnimations: false,
       reduceDynamicBlur: false,
       liquidGlass: true,
       fullBleedArtwork: true,
@@ -194,6 +198,7 @@ export const useSettings = create<SettingsState>()(
       setLoudnessLevel: (loudnessLevel) => set({ loudnessLevel }),
       setMatchLanguage: (matchLanguage) => set({ matchLanguage }),
       setReduceAnimation: (reduceAnimation) => set({ reduceAnimation }),
+      setFullAnimations: (fullAnimations) => set({ fullAnimations }),
       setReduceDynamicBlur: (reduceDynamicBlur) => set({ reduceDynamicBlur }),
       setLiquidGlass: (liquidGlass) => set({ liquidGlass }),
       setFullBleedArtwork: (fullBleedArtwork) => set({ fullBleedArtwork }),
