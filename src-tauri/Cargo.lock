@@ -564,6 +564,7 @@ dependencies = [
  "url",
  "urlencoding",
  "walkdir",
+ "webkit2gtk",
 ]
 
 [[package]]

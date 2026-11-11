@@ -122,6 +122,7 @@ pub fn open(app: &AppHandle, state: &Arc<AppState>) {
             return;
         }
     };
+    crate::webkit_fixes::apply(&win);
     let _ = win.show();
     notify_main(app, "pip:open-changed", json!(true));
     notify_main(app, "pip:need-state", json!(null));

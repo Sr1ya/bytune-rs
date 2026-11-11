@@ -31,6 +31,7 @@ mod state;
 mod stats;
 mod tray;
 mod updater;
+mod webkit_fixes;
 mod ytm;
 
 use state::AppState;
@@ -246,6 +247,7 @@ pub fn run() {
             let window = builder
                 .background_color(tauri::window::Color(10, 10, 10, 255))
                 .build()?;
+            webkit_fixes::apply(&window);
             let w = window.clone();
             // Maximized / fullscreen go to the page only when they change: Resized fires for every
             // size step, and each event used to restart work in the page.
