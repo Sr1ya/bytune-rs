@@ -1,0 +1,7 @@
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/binaries/
+*.log
+botguard-bin/
+.DS_Store

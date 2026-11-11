@@ -1,0 +1,245 @@
+/*
+ * ByTune's launch intro (index.html's #intro; src/intro.ts ends it): ZCode's startup loader
+ * (packages/desktop/src/renderer/index.html, © ZCode, Apache License 2.0), as Arkemis Cut ports it, with
+ * ByTune's animation in it. The window opens as glass (main.ts setGlass: Windows 11's acrylic, the desktop
+ * blurred behind it) and ZCode's logo shell pops in with its spring. The mark draws itself in light inside
+ * the shell (the brand kit's logo intro, 06_Motion) as the glass darkens into the app's ground; then the
+ * shell slides into the lockup as "ByTune" rises in beside it, and intro.ts lands the logo in the top bar's.
+ * Changed from ZCode's: ByTune's mark and wordmark and their motion, the darkening, the landing.
+ * A linked stylesheet in <head>, so it applies before anything paints. public/intro.js turns it on
+ * (html.intro) except in the miniplayer's window.
+ */
+
+#intro {
+  display: none;
+}
+
+/* The glass shows through until the intro has played (intro.ts then takes intro-glass off, as it draws the
+   app under it); the body is the app's ground again from there, so nothing under the glide has to be drawn
+   afresh. index.html paints it inline, so this needs !important. */
+html.intro-glass body {
+  background: transparent !important;
+}
+
+html.intro #intro {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  display: grid;
+  place-items: center;
+  -webkit-app-region: drag;
+}
+
+/* Glass while the shell pops, then the window's own ground (main.ts, body), as in Arkemis Cut: a layer of its
+   own that fades in, and out again at the hand-over, by opacity alone, so neither redraws the screen. It fades
+   in to 99.9%, not 100%: Chromium skips drawing whatever a fully opaque layer covers, and the app is drawn
+   under it before the glide (below). */
+html.intro #intro::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: #0a0a0a;
+  opacity: 0;
+  pointer-events: none;
+  animation: intro-dark 160ms ease 0.84s both;
+}
+
+/* Until it's handed over the app stays hidden under it. */
+html.intro-wait #root {
+  opacity: 0;
+}
+
+/* Then, before the glide, it's shown under the intro's dark ground and so drawn, but unseen (at 0.1% of it,
+   nothing reaches the screen); intro.ts waits for that. The glide then needn't wait on the app's first picture,
+   which with a big library froze it for most of a second, and nothing about the app changes as it begins. */
+html.intro-wait.intro-warm #root {
+  opacity: 1;
+}
+
+/* intro.ts's probe: a dot under the dark ground, drawn in a frame after the app's first picture, which
+   Element Timing reports once that frame has reached the screen. */
+.intro-probe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: -2;
+  color: #0a0a0a;
+  pointer-events: none;
+}
+
+/* Handed over (intro.ts animates the exit): the app underneath takes clicks and window drags. */
+html.intro:not(.intro-wait) #intro {
+  pointer-events: none;
+  -webkit-app-region: no-drag;
+}
+
+/* The brand kit's tile-beside-wordmark lockup (01_Logo/alternate-badge): the wordmark 0.729 of the tile
+   tall (--word wide), 0.387 of it away (--gap), centred on it. */
+.intro-lockup {
+  --gap: 37px;
+  --word: 268.5px;
+  display: flex;
+  align-items: center;
+}
+
+/* How far right of its place the shell sits (intro-settle eases it). */
+@property --slide {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+/* The shell slides into the lockup as the brand's logo intro moves its mark (1.9s to 2.55s of the mark's
+   time, ease-in-out cubic): it starts in the middle, half the name's width over, and the letters rise in
+   place beside it. */
+.intro-tile {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 96px;
+  height: 96px;
+  translate: var(--slide) 0;
+  animation: intro-settle 0.65s linear 2.05s both;
+}
+
+/* ZCode's logo shell: 24px corners, black to graphite top to bottom, a 10% white outline (the gradient
+   spans it, as ZCode's does) and a soft shadow, popping in with ZCode's spring. Its own layer, so the
+   spark at its centre shows at full strength as it pops and the exit can fade it and fly the mark alone. */
+.intro-tile::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  border-radius: 24px;
+  background: linear-gradient(180deg, #000000 0%, #151718 100%) border-box;
+  box-shadow:
+    0 20px 25px -5px rgb(0 0 0 / 0.2),
+    0 8px 10px -6px rgb(0 0 0 / 0.2);
+  animation: intro-pop 0.72s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both;
+}
+
+/* Its paths are the app's own wordmark (assets/brand). Over the tile, which is still settling as the
+   first letters rise. */
+.intro-word {
+  position: relative;
+  display: block;
+  padding-left: var(--gap);
+}
+
+.intro-word svg {
+  display: block;
+  width: var(--word);
+  height: 70px;
+  overflow: visible;
+}
+
+/* Letters come in as in the brand kit's logo intro (06_Motion, _source/generate_assets.py): each rises
+   0.45 of a cap height (170 of the wordmark's units) while fading in, 0.6s ease-out cubic, 0.05s after the
+   one before (--i). */
+.intro-l {
+  animation: intro-rise 0.6s cubic-bezier(0.33, 1, 0.68, 1) calc(2.35s + var(--i) * 0.05s) both;
+}
+
+@keyframes intro-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.72);
+  }
+  38% {
+    opacity: 1;
+    transform: scale(1.045);
+  }
+  58% {
+    transform: scale(0.985);
+  }
+  76% {
+    transform: scale(1.008);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes intro-dark {
+  to {
+    opacity: 0.999;
+  }
+}
+
+/* Ease-in-out cubic as its two halves. It eases --slide, which the shell's translate reads, rather than
+   animating the translate itself or `left`:
+   - a transform animation runs on the GPU, and while one runs or even waits on the shell, Chromium draws
+     the shell and the mark in it as a lower-resolution picture, so the light show looks pixelated;
+   - `left` snaps the shell to whole pixels, so the slide steps instead of gliding.
+   Eased this way, the shell is drawn on the main thread each frame, sharp and between pixels. */
+@keyframes intro-settle {
+  from {
+    --slide: calc((var(--gap) + var(--word)) / 2);
+    animation-timing-function: cubic-bezier(0.32, 0, 0.67, 0);
+  }
+  50% {
+    --slide: calc((var(--gap) + var(--word)) / 4);
+    animation-timing-function: cubic-bezier(0.33, 1, 0.68, 1);
+  }
+  to {
+    --slide: 0px;
+  }
+}
+
+@keyframes intro-rise {
+  from {
+    opacity: 0;
+    translate: 0 170px;
+  }
+}
+
+@keyframes intro-breathe {
+  50% {
+    opacity: 0.4;
+  }
+}
+
+/* With reduced motion the logo shows as it ends: no pop, slide, rise or breathing, and no light show
+   (public/intro.js). The darkening over the glass stays, a fade rather than a move. */
+@media (prefers-reduced-motion: reduce) {
+  #intro *,
+  #intro *::before {
+    animation: none;
+  }
+}
+
+/* ---- The mark. Its light show is drawn on .intro-light by public/intro-light.js, in a worker, so the app
+   starting up on this page's main thread can't stall it; public/intro.js starts it. The SVG mark is the logo
+   as it ends: shown instead when there's no light show (reduced motion, or the worker didn't start). ---- */
+
+/* Centred on the shell and 240px across, so the ring and its glow fit. Its pixels are the screen's. */
+.intro-light {
+  position: absolute;
+  top: -72px;
+  left: -72px;
+  width: 240px;
+  height: 240px;
+  pointer-events: none;
+}
+
+.intro-mark {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  overflow: visible;
+}
+
+html.intro-lit .intro-mark {
+  visibility: hidden;
+}
+
+/* Once the logo is complete it breathes while the app gets ready. */
+.intro-light,
+.intro-mark {
+  animation: intro-breathe 1.8s ease-in-out 3.3s infinite;
+}

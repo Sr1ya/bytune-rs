@@ -1,0 +1,1 @@
+{"default":{"identifier":"default","description":"Main window and mini player: the ipc command plus app events.","local":true,"windows":["main","pip"],"permissions":["core:default","core:event:default","core:app:default","core:window:allow-start-dragging"]}}

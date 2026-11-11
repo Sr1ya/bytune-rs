@@ -1,0 +1,50 @@
+# Quick checks on every push and pull request (Linux only, to keep runner time low): the UI
+# type-checks and builds, and the Rust backend compiles and passes its offline tests.
+# Full installers for every platform come from release.yml.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - run: npm ci
+      - name: Type-check and build the UI
+        run: npm run build
+
+      # Tauri checks that every sidecar exists at compile time; an empty stand-in is enough here.
+      - name: Stand-in sidecar
+        run: |
+          mkdir -p src-tauri/binaries
+          touch src-tauri/binaries/rustypipe-botguard-x86_64-unknown-linux-gnu
+          chmod +x src-tauri/binaries/rustypipe-botguard-x86_64-unknown-linux-gnu
+
+      - name: Rust tests
+        working-directory: src-tauri
+        run: cargo test --lib --locked

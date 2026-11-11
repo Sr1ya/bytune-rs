@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="referrer" content="no-referrer" />
+    <!-- ipc: / http://ipc.localhost carry Tauri's IPC; 127.0.0.1 is the local stream proxy -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' file:; style-src 'self' 'unsafe-inline' file:; img-src 'self' data: blob: https: localart:; media-src 'self' blob: https: http://127.0.0.1:* file:; connect-src 'self' ipc: http://ipc.localhost https: http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:*; font-src 'self' data: file:; object-src 'none'; base-uri 'self'"
+    />
+    <title>ByTune</title>
+    <!-- The launch intro, after Arkemis Cut's (which follows ZCode's): public/intro.js turns it on (not in the
+         miniplayer's window) before anything paints; src/intro.css draws it; src/intro.ts ends it. -->
+    <script src="./intro.js"></script>
+    <link rel="stylesheet" href="/src/intro.css" />
+    <script type="module" src="/src/main.tsx"></script>
+  </head>
+  <body style="background:#0a0a0a">
+    <div id="root"></div>
+    <div id="intro" role="status" aria-label="Opening ByTune">
+      <div class="intro-lockup">
+        <div class="intro-tile">
+          <!-- The mark: public/intro-light.js draws its light show on the canvas, in a worker (the brand kit's
+               logo intro, 06_Motion); the SVG is the logo as it ends, for when there's no light show. -->
+          <canvas class="intro-light" width="240" height="240" data-size="240" aria-hidden="true"></canvas>
+          <svg class="intro-mark" viewBox="0 0 600 600" aria-hidden="true">
+            <g transform="translate(300 300) scale(0.231542)">
+              <g transform="translate(-849.99 -997.26)" fill="#FFFFFF">
+                <path fill-rule="evenodd" d="M811.7 83.3L1518.7 494.3C1580.1 530 1624.9 588.7 1643.1 657.4C1661.3 726.1 1651.4 799.2 1615.7 860.7C1580 922.1 1521.3 966.9 1452.6 985.1C1383.9 1003.3 1310.8 993.4 1249.3 957.7L542.3 546.7C480.9 511 436.1 452.3 417.9 383.6C399.7 314.9 409.6 241.8 445.3 180.3C481 118.9 539.7 74.1 608.4 55.9C677.1 37.7 750.2 47.6 811.7 83.3Z" />
+                <path fill-rule="evenodd" d="M1226 1091.9C1287.6 1056.4 1360.7 1046.7 1429.4 1065.1C1498 1083.5 1556.6 1128.5 1592.1 1190C1627.6 1251.6 1637.3 1324.7 1618.9 1393.4C1600.5 1462 1555.6 1520.6 1494 1556.1L830 1939.5C820.9 1944.7 810.5 1947.5 800 1947.5C789.5 1947.5 779.1 1944.7 770 1939.5C760.9 1934.2 753.3 1926.6 748 1917.5C742.8 1908.4 740 1898 740 1887.5V1460C740 1400 772 1354 824 1324L1226 1091.9Z" />
+                <path fill-rule="evenodd" d="M519 773.3C555 747.5 606 773.3 606 817.3V1659.3C606 1691.3 581 1717.3 549 1717.3C537 1717.3 526 1713.3 516 1706.3L170 1474.3C94 1423.3 48 1342.3 48 1255.3C48 1168.3 86 1085.3 156 1034.3L519 773.3Z" />
+              </g>
+            </g>
+          </svg>
+        </div>
+        <!-- One path per letter, in reading order (--i orders them): the app's own wordmark. -->
+        <span class="intro-word" aria-hidden="true">
+          <svg viewBox="55 88 1891 493" fill="#ffffff">
+            <path class="intro-l" style="--i: 0" fill-rule="evenodd" d="M55 102H290C348 102 392 142 392 197C392 231 375 259 348 275C396 287 428 321 428 370C428 435 376 480 299 480H55V102ZM129 167H269C291 167 312 182 312 205C312 227 293 243 269 243H129V167ZM129 310H287C319 310 341 331 341 360C341 390 319 412 287 412H129V310Z" />
+            <path class="intro-l" style="--i: 1" d="M413 214H433C495 214 514 248 548 308L597 384L650 297C686 236 709 214 771 214H789L611 511C584 557 553 581 494 581H390C402 538 435 519 471 510L498 503C525 496 536 478 550 458L413 214Z" />
+            <path class="intro-l" style="--i: 2" d="M797 88H1090C1086 132 1049 165 987 165H934C915 165 904 175 904 194V480H828V176C828 170 827 166 823 166H671C684 118 734 88 797 88Z" />
+            <path class="intro-l" style="--i: 3" d="M956 214H1032V346C1032 385 1064 417 1104 417C1144 417 1177 385 1177 346V214H1253V346C1253 424 1187 483 1104 483C1021 483 956 424 956 346V214Z" />
+            <path class="intro-l" style="--i: 4" d="M1274 478V344C1274 268 1339 207 1422 207C1505 207 1570 268 1570 344V478H1493V344C1493 307 1461 277 1422 277C1383 277 1351 307 1351 344V478H1274Z" />
+            <path class="intro-l" style="--i: 5" d="M1753 210H1799C1881 210 1946 273 1946 349C1946 360 1945 370 1944 380H1727C1705 380 1690 366 1690 349C1690 332 1705 317 1727 317H1862C1849 293 1828 277 1799 277H1753C1700 277 1658 308 1658 348C1658 388 1689 416 1736 416H1933C1908 459 1870 480 1809 480H1734C1654 480 1588 423 1588 348C1588 272 1652 210 1753 210Z" />
+          </svg>
+        </span>
+      </div>
+    </div>
+  </body>
+</html>

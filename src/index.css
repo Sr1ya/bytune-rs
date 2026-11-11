@@ -1,0 +1,5378 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   ByTune — global styles & design-system utilities
+   Apple-Music visual language, desktop-scale.
+   ============================================================ */
+
+:root {
+  color-scheme: dark;
+  /* Primary is pure white in dark theme: the shell is monochrome
+     and artwork tinting is the only colour the app ever introduces. */
+  --accent: 255 255 255;
+  /* Semantic surfaces + ink as variables (single dark theme). */
+  --base: 0 0 0;
+  --surface: 13 13 15;
+  --panel: 28 28 30;
+  --elevated: 44 44 46;
+  --primary: 255 255 255;
+  --on-primary: 0 0 0;
+  --ink-hi: 255 255 255;
+  --ink: 255 255 255;
+  --ink-dim: 142 142 147;
+  --ink-faint: 255 255 255;
+  --ink-ghost: 255 255 255;
+  /* artwork-derived ambience (R G B) — set from the current track's artwork.
+     The fallback is a neutral grey, never a brand hue, so an unread sleeve
+     leaves the canvas black rather than tinting it. */
+  --ambient-0: 60 60 64;
+  --ambient-1: 40 40 44;
+  --surface-base: #000000;
+  /* Per-page ArtworkPalette — set by lib/palette.ts on the content host.
+     The shell stays monochrome; these are how album/playlist/artist pages
+     (and the NowPlaying overlay) inherit the artwork's own colours. */
+  --page-bg: 13 13 15;
+  --page-wash: 13 13 15;
+  --page-elevated: 28 28 30;
+  --page-accent: 255 255 255;
+  --page-on: 255 255 255;
+  --page-on-variant: 142 142 147;
+  --page-divider: 255 255 255;
+  /* Hairlines, taken straight from LiquidGlass.kt:76-77 (white @ 0.10 for
+     glass edges) and Common.kt:80 (white @ 0.15 for artwork borders). */
+  --hairline: 255 255 255;
+  --hairline-alpha: 0.10;
+  --hairline-strong-alpha: 0.15;
+  /* Selection pill / active-row tint — the same primary @ 0.14 used by
+     FloatingBottomBar.kt:234 and Common.kt:452. */
+  --selected-tint-alpha: 0.14;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+/* ---------- frameless window chrome ---------- */
+/* The top bar is the drag surface (double-click = maximize toggle); every
+   interactive cluster inside opts back out so clicks land on controls. */
+.app-drag {
+  -webkit-app-region: drag;
+}
+.app-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+body {
+  @apply bg-base text-ink antialiased font-sans;
+  overflow: hidden;
+}
+
+::selection {
+  background: rgb(var(--accent) / 0.35);
+  color: #fff;
+}
+
+/* ---------- ambient atmosphere ---------- */
+/* Artwork-derived glow behind the whole app. Vars are set by lib/ambient.
+   Kept subtle — the canvas stays black and artwork tints it. */
+.ambient-root {
+  background:
+    radial-gradient(1200px 760px at 12% -14%, rgb(var(--ambient-0) / 0.10), transparent 62%),
+    radial-gradient(1000px 680px at 94% -10%, rgb(var(--ambient-1) / 0.08), transparent 58%),
+    radial-gradient(1500px 860px at 50% 122%, rgb(var(--ambient-0) / 0.045), transparent 62%),
+    var(--surface-base);
+}
+
+/* ---------- glass surfaces ---------- */
+/* Liquid-glass recipe: a thin
+   white-highlight gradient + the surface tint #121212 at SURFACE_OPACITY 0.4,
+   0.5px hairline (GLASS_EDGE_COLOR: white @ 0.10), Highlight.Default's inset
+   white line, and the 24px drop the rest of the shadow stack expects. */
+.glass {
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015) 55%),
+    rgba(18, 18, 18, 0.40);
+  border: 0.5px solid rgba(255, 255, 255, 0.10);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.5), 0 4px 24px rgba(0, 0, 0, 0.10);
+}
+
+/* Popovers, menus, dialogs — the same glass family as the sidebar/right
+   rail's .glass-pill (thin white highlight over a near-black tint, hairline
+   edge, inset top light), but effectively OPAQUE (0.98): floating menus are
+   read over whatever the app is showing — text-heavy lists, bright artwork —
+   and the backdrop blur beneath them cannot be trusted (nested glass
+   ancestors establish their own backdrop roots, and blur silently drops on
+   some GPU paths), so the base itself must hide the page. The blur stays as
+   a harmless enhancement; at 0.98 even white-on-black text underneath is
+   ~2% — far under perception — so nothing underneath is ever readable. */
+.glass-strong {
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015) 55%),
+    rgba(17, 17, 19, 0.98);
+  border: 0.5px solid rgba(255, 255, 255, 0.10);
+  backdrop-filter: blur(28px) saturate(150%);
+  -webkit-backdrop-filter: blur(28px) saturate(150%);
+  box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.32), 0 24px 64px -16px rgba(0, 0, 0, 0.75);
+}
+
+/* The search-bar dropdowns live inside the top bar's chrome-glass, whose own
+   backdrop-filter is a backdrop root — a translucent glass panel there can't
+   sample the page behind it and reads as washed-out transparent. This variant
+   is SOLID — the exact same colour as the search field's bg-panel — wearing
+   the popup chrome (highlight gradient, hairline, edge light, float shadow)
+   on top, so they match the floating menus without any transparency. */
+.glass-strong-solid {
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015) 55%),
+    rgb(var(--panel));
+  border: 0.5px solid rgba(255, 255, 255, 0.10);
+  box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.32), 0 24px 64px -16px rgba(0, 0, 0, 0.75);
+}
+
+/* ---------- menus (components/ContextMenu, the Create menu, the search box's lists) ----------
+   ByTune's own: a solid dark sheet, no glass. One light glides under the rows to the one under the
+   pointer or the keyboard (red on a destructive row), the way the Settings rail and the song lists
+   move theirs. Sentence-case captions, hairlines between groups, a check at the right of the chosen
+   option. A menu about a song, a playlist, an album or an artist opens with it on top, lit by its
+   cover. It unfolds from the corner it was opened at; a row's own menu slides out from that row. */
+.menu {
+  --menu-ease: cubic-bezier(0.2, 0.9, 0.3, 1);
+  padding: 6px;
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.035), rgb(255 255 255 / 0) 72px),
+    rgb(24 24 27);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.075),
+    inset 0 1px 0 rgb(255 255 255 / 0.05),
+    0 22px 50px -14px rgb(0 0 0 / 0.78),
+    0 3px 10px rgb(0 0 0 / 0.35);
+  color: rgb(var(--ink-hi));
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 0.18) transparent;
+  transform-origin: var(--menu-origin, top left);
+  animation: menu-open 170ms var(--menu-ease) both;
+}
+.menu.is-above {
+  animation-name: menu-open-up;
+}
+.menu.menu-sub {
+  animation-name: menu-slide-right;
+}
+.menu.menu-sub.is-flipped {
+  animation-name: menu-slide-left;
+}
+@keyframes menu-open {
+  from { opacity: 0; transform: translateY(-4px) scale(0.965); }
+}
+@keyframes menu-open-up {
+  from { opacity: 0; transform: translateY(4px) scale(0.965); }
+}
+@keyframes menu-slide-right {
+  from { opacity: 0; transform: translateX(-6px); }
+}
+@keyframes menu-slide-left {
+  from { opacity: 0; transform: translateX(6px); }
+}
+.menu-list {
+  position: relative;
+}
+.menu-light {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-radius: 10px;
+  background: rgb(255 255 255 / 0.085);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 190ms var(--menu-ease), height 190ms var(--menu-ease), opacity 150ms ease, background-color 150ms ease;
+}
+.menu-light.is-on {
+  opacity: 1;
+}
+.menu-light.is-danger {
+  background: rgb(229 72 77 / 0.15);
+}
+.menu-row {
+  position: relative;
+  width: 100%;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px;
+  border-radius: 10px;
+  text-align: left;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: rgb(var(--ink-hi) / 0.84);
+  transition: color 120ms ease;
+}
+.menu-row:focus-visible {
+  outline: none;
+}
+.menu-row:is(:hover, :focus-visible):not(:disabled),
+.menu-row.is-open,
+.menu-row.is-checked {
+  color: rgb(var(--ink-hi));
+}
+.menu-row:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+.menu-icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  opacity: 0.66;
+  transition: opacity 120ms ease;
+}
+.menu-row:is(:hover, :focus-visible):not(:disabled) .menu-icon,
+.menu-row.is-open .menu-icon {
+  opacity: 1;
+}
+.menu-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.menu-label,
+.menu-note {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* A row with a second line: its icon in a tile, the label weightier. */
+.menu-row.is-rich {
+  padding: 7px 10px;
+}
+.menu-tile {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  color: rgb(var(--ink-hi));
+  background: rgb(255 255 255 / 0.07);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.05);
+  transition: background-color 150ms ease;
+}
+.menu-row.is-rich:is(:hover, :focus-visible) .menu-tile {
+  background: rgb(255 255 255 / 0.11);
+}
+.menu-row.is-rich .menu-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgb(var(--ink-hi));
+}
+.menu-note {
+  margin-top: 1px;
+  font-size: 12px;
+  font-weight: 400;
+  color: rgb(var(--ink-hi) / 0.5);
+}
+.menu-check {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  color: rgb(var(--ink-hi));
+}
+.menu-more {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  margin-right: -3px;
+  opacity: 0.45;
+}
+.menu-row.is-danger {
+  color: #ff8589;
+}
+.menu-row.is-danger .menu-icon {
+  opacity: 0.9;
+}
+.menu-sep {
+  height: 1px;
+  margin: 6px 10px;
+  background: rgb(255 255 255 / 0.07);
+}
+.menu-caption {
+  padding: 9px 12px 5px;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgb(var(--ink-hi) / 0.45);
+}
+/* What the menu acts on, lit by its cover: the cover blurred into light behind the top of the sheet. */
+.menu-subject {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 8px 8px;
+}
+.menu-subject::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: -6px;
+  left: -6px;
+  right: -6px;
+  height: 128px;
+  background: var(--light) center / 100% 100% no-repeat;
+  filter: blur(30px) saturate(1.6);
+  opacity: 0.32;
+  -webkit-mask-image: linear-gradient(to bottom, #000 20%, transparent);
+  mask-image: linear-gradient(to bottom, #000 20%, transparent);
+  pointer-events: none;
+}
+.menu-subject-title,
+.menu-subject-sub {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.menu-subject-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: rgb(var(--ink-hi));
+}
+.menu-subject-sub {
+  margin-top: 1px;
+  font-size: 12.5px;
+  color: rgb(var(--ink-hi) / 0.55);
+}
+@media (prefers-reduced-motion: reduce) {
+  .menu,
+  .menu-light {
+    animation: none;
+    transition: none;
+  }
+}
+
+/* Pill glass — same recipe as .glass, but the radius is part of the chrome
+   (sidebar pills, the player bar). Highlight + hairline follow the curve. */
+.glass-pill {
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015) 55%),
+    rgba(18, 18, 18, 0.40);
+  border: 0.5px solid rgba(255, 255, 255, 0.10);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.5), 0 4px 18px rgba(0, 0, 0, 0.18);
+}
+
+/* Player bar — glass with a faint artwork tint at the top edge. */
+.player-glass {
+  background:
+    linear-gradient(180deg, rgb(var(--ambient-0) / 0.04), rgb(var(--ambient-1) / 0.015) 55%, transparent),
+    rgba(0, 0, 0, 0.86);
+  backdrop-filter: blur(28px) saturate(155%);
+  -webkit-backdrop-filter: blur(28px) saturate(155%);
+  box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.10);
+}
+
+/* Top bar chrome — pure dark glass, no artwork bleed. */
+.chrome-glass {
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(24px) saturate(140%);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+}
+
+/* iOS 26-style fade under the top bar: content dissolves into chrome */
+.top-fade {
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.92), rgba(0, 0, 0, 0.55) 45%, transparent);
+}
+
+/* Page tint — an album, playlist or artist page wearing its cover's colours.
+   The page sets its palette here (style={pageColors(...)}, lib/palette.ts).
+   Its header (the first child: the cover full-bleed) dissolves into
+   --page-bg at its foot; that colour then carries on below the header and
+   fades into the panel, behind the page's content. The page reaches to the
+   panel's bottom edge (the view wrapper's 1.5rem padding is taken over), and
+   clips the fade there, so a short page is never lengthened or cut off by it. */
+.page-tint {
+  color: rgb(var(--page-on));
+  isolation: isolate;
+  overflow: visible clip;
+  margin-bottom: -1.5rem;
+  padding-bottom: 1.5rem;
+}
+.page-tint > :first-child {
+  overflow: clip visible;
+}
+.page-tint > :first-child::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 360px;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(to bottom, rgb(var(--page-bg)), rgb(var(--page-bg) / 0.55) 45%, rgb(var(--page-bg) / 0));
+}
+/* The view wrapper of such a page fills the panel, so the page can too. */
+.view-page:has(> .page-tint) {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+.view-page > .page-tint {
+  flex: 1 0 auto;
+}
+
+main {
+  /* Hoist the view scroller's scroll timeline so the search band — which
+     lives outside the scroller — can animate to the same scroll position. */
+  timeline-scope: --view-scroll;
+}
+
+/* The scroll timeline the search band reads (see .search-band). */
+#view-scroll {
+  scroll-timeline-name: --view-scroll;
+}
+
+/* The middle panel's glow (components/CoverGlow): the cover blurred into light
+   across the top, fading down into the panel. The mask carries the fade (and
+   the grain with it), so nothing ever ends on a hard horizontal edge. */
+.cover-glow {
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, rgb(0 0 0 / 0.78) 30%, rgb(0 0 0 / 0.36) 62%, transparent 100%);
+  mask-image: linear-gradient(to bottom, black 0%, rgb(0 0 0 / 0.78) 30%, rgb(0 0 0 / 0.36) 62%, transparent 100%);
+}
+/* Stretched to the band rather than cropped: blurred this far, all of a
+   cover's colours show, each where it sits on the cover. Bigger than the band
+   so the blur's soft edge stays out of sight. The image is the cover already
+   blurred and graded (lib/softArt), smoothly upscaled: no filter to redo. */
+.cover-glow-art {
+  position: absolute;
+  inset: -30%;
+  background-position: center;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  opacity: 0.9;
+  animation: cover-glow-in 600ms ease both;
+}
+.cover-glow-out {
+  animation: cover-glow-out 600ms ease both;
+}
+@keyframes cover-glow-in {
+  from { opacity: 0; }
+  to { opacity: 0.9; }
+}
+@keyframes cover-glow-out {
+  from { opacity: 0.9; }
+  to { opacity: 0; }
+}
+/* Fine grain over the glow: no banding in its long, dark fade. */
+.cover-glow-grain {
+  position: absolute;
+  inset: 0;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.035 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E") repeat;
+}
+
+/* Frosted search band — rendered by App at panel level (see App.tsx for why
+   it lives outside the scroller). Pure backdrop blur, no painted colour, so
+   the page's artwork-tint wash shows through untinted. Its opacity rides
+   the view scroller's timeline: invisible at the top of the list, fully
+   painted after ~48px of scroll — no JS state to desync. */
+.search-band {
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  opacity: 0;
+  animation: sticky-backdrop-in linear both;
+  animation-timeline: --view-scroll;
+  animation-range: 0px 48px;
+}
+@keyframes sticky-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+/* No scroll-driven animation (unsupported engines): keep the band up. */
+@supports not (animation-timeline: scroll()) {
+  .search-band {
+    opacity: 1;
+  }
+}
+/* Same under reduce-motion: keep the band up. */
+html.reduce-motion .search-band {
+  animation: none;
+  opacity: 1;
+}
+
+/* Reduce motion: a new cover's glow is just there, and one leaving just goes. */
+html.reduce-motion .cover-glow-art {
+  animation: none;
+}
+html.reduce-motion .cover-glow-out {
+  opacity: 0;
+}
+
+/* Drop feedback — a ring that blooms out of the row it landed on. */
+@keyframes drop-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgb(var(--accent) / 0.45);
+  }
+  100% {
+    box-shadow: 0 0 0 14px rgb(var(--accent) / 0);
+  }
+}
+
+.animate-drop-pulse {
+  animation: drop-pulse 0.6s ease-out;
+}
+
+/* Artwork inside draggable rows must never start its own native image
+   drag — a native drag swallows the click and freezes :hover app-wide. */
+img,
+video {
+  -webkit-user-drag: none;
+}
+
+/* Drag sources are always `draggable` (see lib/dnd.ts): media inside them
+   is hit-test-transparent so the WHOLE tile — center, edge, corner, title,
+   empty space — reports the same drag origin instead of the <img> under the
+   cursor winning on some pixels and losing on others. Interactive children
+   (buttons/links) keep their own hit-testing; only media is flattened. */
+[draggable="true"] img,
+[draggable="true"] video {
+  pointer-events: none;
+}
+
+/* Draggable rows/cards keep their contextual cursor on hover (pointer for
+   clickable tiles) — never a grab affordance. While an OS drag is actually
+   in flight the app wears grabbing everywhere, driven by the
+   `bytune-dragging` body flag useDrag sets in onDragStart/onDragEnd. */
+body.bytune-dragging,
+body.bytune-dragging * {
+  cursor: grabbing !important;
+}
+
+/* ---------- scrollbars (desktop feel) ----------
+   Themed exclusively via ::-webkit-scrollbar — do NOT set standard
+   scrollbar-width/scrollbar-color on themed elements: Chromium disables
+   all webkit scrollbar styling for them and falls back to the native
+   Windows scrollbar (arrows + gray thumb). */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-button,
+::-webkit-resizer {
+  display: none;
+  width: 0;
+  height: 0;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.18);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* horizontal shelves: slimmer bar that reveals itself on shelf hover */
+.shelf-scroll::-webkit-scrollbar {
+  height: 8px;
+}
+.shelf-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.05);
+  background-clip: content-box;
+  transition: background-color 0.2s ease;
+}
+.shelf-scroll:hover::-webkit-scrollbar-thumb,
+.shelf-scroll:focus-within::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.16);
+}
+
+.shelf-scroll {
+  scroll-behavior: smooth;
+}
+
+/* The lyrics scroller (SyncedLyrics): no background of its own, and a slim
+   pill that floats a few pixels in from the edge instead of hugging it. */
+.scroll-host {
+  background: transparent;
+  scrollbar-gutter: stable;
+}
+.scroll-host::-webkit-scrollbar {
+  width: 14px;
+}
+.scroll-host::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border: 5px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+}
+.scroll-host::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.22);
+}
+.scroll-host::-webkit-scrollbar-track,
+.scroll-host::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* The list of lines is a layer of its own: the glide to the next line is a transform on it,
+   composited without repainting a line (SyncedLyrics). */
+.lyrics-lines {
+  will-change: transform;
+}
+/* A lyric line's depth (SyncedLyrics LyricLine): its opacity eases to the new distance. */
+.lyric-line {
+  transition: opacity 500ms ease-out;
+}
+/* "Blur unfocused lyrics": the words are drawn as their own soft shadow, painted with the text.
+   (A filter: blur() put every line on a surface that was blurred again whenever anything near it
+   changed: 4-6 fps through a line change.) */
+.lyric-line.is-soft,
+.lyric-line.is-soft * {
+  color: transparent;
+  text-shadow: 0 0 var(--lyric-soft, 3px) rgb(var(--ink-hi));
+}
+/* The live line's glow: a text-shadow, which paints with the text. (A drop-shadow filter put the
+   line on a surface of its own that was filtered again for every frame of the word sweep.) */
+.lyric-glow-line,
+.lyric-glow .lyric-word.is-sung {
+  text-shadow: 0 0 22px rgb(255 255 255 / 0.28);
+}
+/* Word sweep (WordLine): unsung and sung words are plain colours; only the word being sung carries
+   the gradient, swept by --p. */
+.lyric-word {
+  color: rgb(var(--ink-hi) / 0.28);
+}
+.lyric-word.is-sung {
+  color: rgb(var(--ink-hi));
+}
+.lyric-word.is-singing {
+  background-image: linear-gradient(90deg, rgb(var(--ink-hi)) var(--p, 0%), rgb(var(--ink-hi) / 0.28) var(--p, 0%));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* hide scrollbar but keep scrolling (pills rows) */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+/* The middle panel's scrollbar (components/PanelScrollbar), drawn over the
+   page: the panel's scroller hides its own so covers run to the panel's right
+   edge (see App.tsx). The pill the native one drew, 4px wide and 5px in from
+   the edge, with a faint dark rim so it still shows over a light cover. Only
+   the thumb takes the pointer; the strip under it is the page's. */
+.panel-scrollbar {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 14px;
+  z-index: 20;
+  pointer-events: none;
+}
+.panel-scrollbar-thumb {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  pointer-events: auto;
+}
+.panel-scrollbar-thumb::before {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border-radius: 999px;
+  background-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.2);
+  transition: background-color 150ms ease;
+}
+.panel-scrollbar-thumb:hover::before,
+.panel-scrollbar-thumb[data-dragging]::before {
+  background-color: rgba(255, 255, 255, 0.22);
+}
+
+/* ---------- collection pages (CollectionHero, CoverStack, the lit song list) ----------
+   ByTune's own pages, lit by the music: a wall of the collection's covers for a header,
+   playlists as stacks of their covers, and a light made of each song's cover following
+   the pointer down a list. No colour of their own: every colour comes off the artwork. */
+.collection-hero {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background: rgb(var(--surface));
+}
+/* The wall: tilted and overfilling the header, it sinks and dims as the page scrolls. */
+.cover-wall {
+  position: absolute;
+  inset: -80px -120px;
+  z-index: -2;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  transform: rotate(-7deg);
+  filter: brightness(0.6) saturate(1.15);
+  animation: cover-wall-sink linear both;
+  animation-timeline: --view-scroll;
+  animation-range: 0px 420px;
+}
+.cover-wall-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  animation: cover-wall-in 1200ms var(--ease-enter) both;
+}
+/* Each row holds its tiles twice and slides by one length, so it never runs out. */
+.cover-wall-row {
+  display: flex;
+  width: max-content;
+  animation: cover-wall-drift linear infinite;
+  will-change: transform;
+}
+.cover-wall-tile {
+  flex: none;
+  width: 136px;
+  height: 136px;
+  margin-right: 14px;
+  border-radius: 12px;
+  background: rgb(255 255 255 / 0.05) center / cover no-repeat;
+  box-shadow: 0 10px 28px rgb(0 0 0 / 0.45);
+}
+@keyframes cover-wall-drift {
+  to { transform: translateX(-50%); }
+}
+@keyframes cover-wall-in {
+  from { opacity: 0; transform: scale(1.08); }
+}
+@keyframes cover-wall-sink {
+  from { transform: rotate(-7deg) translateY(0); filter: brightness(0.6) saturate(1.15); }
+  to { transform: rotate(-7deg) translateY(130px); filter: brightness(0.3) saturate(0.9); }
+}
+/* Darker on the text's side, and the foot melting into the panel. */
+.cover-wall-shade {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(to top, rgb(var(--surface)) 0%, rgb(var(--surface) / 0.9) 16%, rgb(var(--surface) / 0.4) 48%, rgb(var(--surface) / 0.08) 100%),
+    radial-gradient(110% 95% at 0% 100%, rgb(0 0 0 / 0.55), transparent 62%);
+}
+.collection-hero .cover-glow-grain {
+  z-index: -1;
+}
+/* A service's own colour (Spotify's green on its pages), as light rising from the lower left behind
+   the words. It fades out before the header's foot, so it never meets the page below. */
+.collection-light {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(55% 80% at 10% 82%, color-mix(in srgb, var(--collection-light) 34%, transparent), transparent 72%);
+  mix-blend-mode: screen;
+  -webkit-mask-image: linear-gradient(to top, transparent 0, #000 120px);
+  mask-image: linear-gradient(to top, transparent 0, #000 120px);
+}
+.collection-hero-text > * {
+  animation: rise-in 560ms var(--ease-enter) both;
+}
+.collection-hero-text > :nth-child(2) { animation-delay: 60ms; }
+.collection-hero-text > :nth-child(3) { animation-delay: 120ms; }
+.collection-hero-text > :nth-child(4) { animation-delay: 180ms; }
+@supports not (animation-timeline: scroll()) {
+  .cover-wall { animation: none; }
+}
+
+/* A collection as a stack of its covers: hovering fans the sleeves out and lights them from below. */
+.stack-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 30px 26px;
+}
+.stack-card {
+  position: relative;
+  min-width: 0;
+  animation: rise-in 520ms var(--ease-enter) both;
+}
+.stack-art {
+  position: relative;
+  aspect-ratio: 1;
+}
+.stack-open {
+  position: absolute;
+  inset: 0;
+  border-radius: 18px;
+  transition: box-shadow 200ms ease;
+}
+.stack-sleeve {
+  position: absolute;
+  inset: 13%;
+  border-radius: 12px;
+  background: rgb(var(--panel)) center / cover no-repeat;
+  box-shadow: 0 14px 34px rgb(0 0 0 / 0.5), inset 0 0 0 1px rgb(255 255 255 / 0.06);
+  transition: transform 460ms var(--ease-enter);
+}
+.stack-sleeve.s1 { transform: rotate(-7deg) translateX(-9%); }
+.stack-sleeve.s2 { transform: rotate(7deg) translateX(9%); }
+.stack-card:hover .stack-sleeve.s0,
+.stack-card:focus-within .stack-sleeve.s0,
+.stack-card.is-lit .stack-sleeve.s0 { transform: translateY(-5%) scale(1.04); }
+.stack-card:hover .stack-sleeve.s1,
+.stack-card:focus-within .stack-sleeve.s1,
+.stack-card.is-lit .stack-sleeve.s1 { transform: rotate(-14deg) translate(-22%, 1%); }
+.stack-card:hover .stack-sleeve.s2,
+.stack-card:focus-within .stack-sleeve.s2,
+.stack-card.is-lit .stack-sleeve.s2 { transform: rotate(14deg) translate(22%, 1%); }
+.stack-light {
+  position: absolute;
+  inset: 22% 8% 0;
+  background: center / 100% 100% no-repeat;
+  filter: blur(28px) saturate(1.6);
+  opacity: 0;
+  transform: translateY(8%) scale(0.9);
+  transition: opacity 460ms var(--ease-enter), transform 460ms var(--ease-enter);
+  pointer-events: none;
+}
+.stack-card:hover .stack-light,
+.stack-card:focus-within .stack-light,
+.stack-card.is-lit .stack-light { opacity: 0.6; transform: translateY(14%) scale(1); }
+.stack-card.is-lit .stack-open { box-shadow: 0 0 0 2px rgb(var(--accent) / 0.6); }
+/* The Play button sits on the top sleeve's corner, not the card's. */
+.stack-play {
+  position: absolute;
+  inset: 13%;
+  z-index: 4;
+  pointer-events: none;
+}
+/* Its options: a round … on the top sleeve's upper corner, on hover. */
+.stack-menu {
+  position: absolute;
+  top: calc(13% + 8px);
+  right: calc(13% + 8px);
+  z-index: 5;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  color: white;
+  background: rgb(0 0 0 / 0.6);
+  opacity: 0;
+  transition: opacity 180ms ease, background-color 180ms ease;
+}
+.stack-menu:hover {
+  background: rgb(0 0 0 / 0.8);
+}
+.stack-card:hover .stack-menu,
+.stack-card:focus-within .stack-menu {
+  opacity: 1;
+}
+/* Needs attention (a local folder that can't be reached). */
+.stack-warn {
+  position: absolute;
+  top: calc(13% - 9px);
+  left: calc(13% - 9px);
+  z-index: 5;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  color: #1c1100;
+  background: rgb(251 191 36);
+  box-shadow: 0 0 0 3px rgb(var(--surface));
+}
+/* "Import another folder": an empty sleeve drawn in dashes. */
+.stack-add .stack-art::before {
+  content: "";
+  position: absolute;
+  inset: 13%;
+  border-radius: 12px;
+  border: 1.5px dashed rgb(255 255 255 / 0.18);
+  transition: border-color 200ms ease, background-color 200ms ease;
+}
+.stack-add:hover .stack-art::before {
+  border-color: rgb(255 255 255 / 0.4);
+  background: rgb(255 255 255 / 0.03);
+}
+
+/* Downloads: a song's cover fills with its colour from the bottom as it comes in. Until it's
+   saved (waiting, failed), the cover stays grey. */
+.dl-cover {
+  position: relative;
+  flex: none;
+  width: 52px;
+  height: 52px;
+}
+.dl-cover:not(.done) > :first-child {
+  filter: grayscale(1) brightness(0.45);
+}
+.dl-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+  background: center / cover no-repeat;
+  clip-path: inset(calc(100% - var(--fill)) 0 0 0 round 8px);
+  transition: clip-path 600ms var(--ease-enter);
+}
+.dl-pct {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: white;
+  text-shadow: 0 1px 6px rgb(0 0 0 / 0.8);
+  font-variant-numeric: tabular-nums;
+}
+.dl-badge {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  width: 19px;
+  height: 19px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  box-shadow: 0 0 0 2.5px rgb(var(--surface));
+}
+.dl-badge.ok { background: rgb(52 211 153); color: #03140d; }
+.dl-badge.fail { background: rgb(248 113 113); color: #1d0606; }
+.dl-badge.wait { background: rgb(82 82 91); color: white; }
+
+/* The lit song list (TrackList): a light made of the cover of the song under the pointer, blurred
+   and stretched across its row, glides from row to row; the playing song keeps a softer one. */
+.tl-light,
+.tl-playing {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  pointer-events: none;
+}
+.tl-light {
+  opacity: 0;
+  transition: transform 240ms var(--ease-enter), height 240ms var(--ease-enter), opacity 320ms ease;
+}
+.tl-light.is-on {
+  opacity: 1;
+}
+/* Inside the playing row, under its text. */
+.tl-playing {
+  bottom: 0;
+  z-index: -1;
+}
+.tl-light::before,
+.tl-playing::before {
+  content: "";
+  position: absolute;
+  inset: -45% -8%;
+  background: var(--light) center / 100% 100% no-repeat;
+  filter: blur(30px) saturate(1.7);
+  opacity: 0.4;
+}
+.tl-playing::before {
+  opacity: 0.22;
+  animation: tl-breathe 3.2s ease-in-out infinite;
+}
+@keyframes tl-breathe {
+  50% { opacity: 0.34; }
+}
+.tl-row {
+  position: relative;
+  z-index: 1;
+}
+
+html.reduce-motion .cover-wall,
+html.reduce-motion .cover-wall-rows,
+html.reduce-motion .cover-wall-row,
+html.reduce-motion .collection-hero-text > *,
+html.reduce-motion .stack-card,
+html.reduce-motion .tl-playing::before {
+  animation: none;
+}
+
+/* ---------- range sliders (ThinSlider port) ----------
+   Idle is a hairline; the thumb only appears on hover, like the mobile
+   player's scrubber that thickens when engaged. */
+input[type="range"].slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    #ffffff var(--fill, 0%),
+    rgba(255, 255, 255, 0.26) var(--fill, 0%),
+    rgba(255, 255, 255, 0.14) var(--buffered, var(--fill, 0%))
+  );
+  outline: none;
+  cursor: pointer;
+  transition: height 0.15s ease;
+}
+input[type="range"].slider:hover {
+  height: 6px;
+}
+/* Play-bar sliders (Spotify progress-bar clone): the input is a 12px hit
+   area; the visible track is a 4px line (2px radius, white @30%) via the
+   runnable-track pseudo, white fill, and a 12px white handle that only
+   shows on hover/press. */
+input[type="range"].slider.slider-thin,
+input[type="range"].slider.slider-bar {
+  height: 12px;
+  background: transparent;
+  transition: none;
+}
+input[type="range"].slider.slider-thin::-webkit-slider-runnable-track,
+input[type="range"].slider.slider-bar::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(
+    to right,
+    #ffffff var(--fill, 0%),
+    rgba(255, 255, 255, 0.3) var(--fill, 0%)
+  );
+}
+input[type="range"].slider.slider-thin::-webkit-slider-thumb,
+input[type="range"].slider.slider-bar::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -4px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: none;
+  opacity: 0;
+  transform: scale(0.5);
+  transition: opacity 0.1s ease, transform 0.1s ease;
+}
+input[type="range"].slider.slider-thin:hover::-webkit-slider-thumb,
+input[type="range"].slider.slider-bar:hover::-webkit-slider-thumb,
+input[type="range"].slider.slider-thin:focus-visible::-webkit-slider-thumb,
+input[type="range"].slider.slider-bar:focus-visible::-webkit-slider-thumb,
+input[type="range"].slider.slider-thin:active::-webkit-slider-thumb,
+input[type="range"].slider.slider-bar:active::-webkit-slider-thumb {
+  opacity: 1;
+  transform: scale(1);
+}
+input[type="range"].slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.55), 0 0 0 4px rgba(255, 255, 255, 0.06);
+  opacity: 0;
+  transform: scale(0.85);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+input[type="range"].slider:hover::-webkit-slider-thumb,
+input[type="range"].slider:focus-visible::-webkit-slider-thumb,
+input[type="range"].slider:active::-webkit-slider-thumb {
+  opacity: 1;
+  transform: scale(1);
+}
+/* Settings sliders (playback speed, crossfade): a numeric value you read at
+   a glance, so the position dot is always on — unlike the play-bar scrubbers
+   that reveal their handle on hover only. */
+input[type="range"].slider.slider-dot::-webkit-slider-thumb {
+  opacity: 1;
+  transform: scale(1);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+/* ---------- floating mini player ---------- */
+/* Native PiP window entrance: a quick fade with a small rise + settle, so
+   the always-on-top window appears rather than pops (Spotify's open feel). */
+@keyframes pip-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-pip-in {
+  animation: pip-in 0.22s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-pip-in {
+    animation: none;
+  }
+}
+
+/* PiP like-burst — Spotify-style "added" animation when the + is clicked:
+   a big green check disc pops in over the small button while a dark ring
+   expands and green confetti squares fly outward, then everything fades and
+   the small green check state remains. Driven by short-lived overlay spans
+   in PipApp (each confetto aims via its own --tx/--ty/--rot vars). */
+@keyframes pip-like-pop {
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  45% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+  72% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+}
+@keyframes pip-like-ring {
+  0% {
+    transform: scale(0.55);
+    opacity: 0.85;
+  }
+  100% {
+    /* ring element is 28px — scale 1.25 ends it at a 35px diameter */
+    transform: scale(1.25);
+    opacity: 0;
+  }
+}
+@keyframes pip-like-confetti {
+  0% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--tx), var(--ty)) rotate(var(--rot)) scale(0.55);
+    opacity: 0;
+  }
+}
+
+/* PiP transport scaling — the controls row zooms with the native window size
+   (PipApp drives --pip-s from a ResizeObserver, 1 at the default size), so
+   buttons shrink before they can crowd the artwork edges on small windows
+   and grow (capped) on large ones. Scoped: only .pip-controls uses it. */
+.pip-controls {
+  zoom: var(--pip-s, 1);
+}
+/* The app-wide :focus-visible reset hides outlines; the miniplayer's
+   controls draw the app's focus ring for keyboard users. */
+.pip-root :is(button, input):focus-visible {
+  outline: 2px solid rgb(var(--accent));
+  outline-offset: 2px;
+}
+
+/* Compact seek slider — a 3px hairline in a 12px hit area; the 10px thumb
+   only surfaces on hover/press/focus, like the main bar's scrubber. */
+input[type="range"].slider.mp-slider {
+  height: 12px;
+  background: transparent;
+  transition: none;
+}
+input[type="range"].slider.mp-slider::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(
+    to right,
+    #ffffff var(--fill, 0%),
+    rgba(255, 255, 255, 0.22) var(--fill, 0%)
+  );
+}
+input[type="range"].slider.mp-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 10px;
+  height: 10px;
+  margin-top: -3.5px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: none;
+  opacity: 0;
+  transform: scale(0.5);
+  transition: opacity 0.1s ease, transform 0.1s ease;
+}
+input[type="range"].slider.mp-slider:hover::-webkit-slider-thumb,
+input[type="range"].slider.mp-slider:focus-visible::-webkit-slider-thumb,
+input[type="range"].slider.mp-slider:active::-webkit-slider-thumb {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* ---------- equalizer bars (now-playing indicator) ---------- */
+@keyframes eq {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+.eq-bar {
+  animation: eq 0.9s ease-in-out infinite;
+  transform-origin: bottom;
+}
+
+/* ---------- skeleton shimmer ---------- */
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+.skeleton {
+  border-radius: 10px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.045) 25%,
+    rgba(255, 255, 255, 0.085) 37%,
+    rgba(255, 255, 255, 0.045) 63%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+/* ---------- artwork hairline ----------
+   A 1px white @ 15% edge on every artwork tile so light-edged covers
+   don't dissolve into the black canvas. */
+.art-hairline {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15);
+}
+
+/* ---------- beacon toasts ----------
+   Drop-down notification capsules. A darker, rounder, heavier glass than
+   .glass-strong so they float over any surface; the JSX adds a kind-coloured
+   ambience glow behind them. */
+.toast-beacon {
+  background:
+    linear-gradient(165deg, rgba(54, 54, 58, 0.98), rgba(20, 20, 22, 0.98));
+  border: 0.5px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(30px) saturate(160%);
+  -webkit-backdrop-filter: blur(30px) saturate(160%);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.30),
+    inset 0 -0.5px 0 rgba(255, 255, 255, 0.05),
+    0 2px 8px rgba(0, 0, 0, 0.35),
+    0 24px 56px -12px rgba(0, 0, 0, 0.85);
+}
+
+/* Arrival: falls from under the top bar with a blur that resolves and a
+   one-keyframe overshoot so the landing reads as a spring, not a slide. */
+@keyframes toast-drop {
+  0% {
+    opacity: 0;
+    transform: translateY(-28px) scale(0.9);
+    filter: blur(6px);
+  }
+  55% {
+    opacity: 1;
+    filter: blur(0);
+  }
+  74% {
+    transform: translateY(3px) scale(1.012);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+.toast-drop {
+  animation: toast-drop 0.55s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+/* Departure: lifted back up, defocusing as it goes. */
+@keyframes toast-lift {
+  to {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.93);
+    filter: blur(5px);
+  }
+}
+.toast-lift {
+  animation: toast-lift 0.34s cubic-bezier(0.55, 0, 0.85, 0.5) forwards;
+}
+
+/* Icon badge springs in just after the capsule lands. */
+@keyframes toast-icon-pop {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.toast-icon {
+  animation: toast-icon-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.14s backwards;
+}
+
+/* One-shot light sweep across the capsule on arrival. */
+@keyframes toast-sheen {
+  0% {
+    transform: translateX(-140%) skewX(-16deg);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(320%) skewX(-16deg);
+    opacity: 0;
+  }
+}
+.toast-sheen {
+  animation: toast-sheen 0.9s cubic-bezier(0.3, 0, 0.2, 1) 0.18s both;
+}
+
+/* Errors give the capsule a short head-shake once it has landed. */
+@keyframes toast-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-5px);
+  }
+  40% {
+    transform: translateX(4px);
+  }
+  60% {
+    transform: translateX(-3px);
+  }
+  80% {
+    transform: translateX(2px);
+  }
+}
+.toast-shake {
+  animation: toast-shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) 0.3s backwards;
+}
+
+/* Lifetime ring around the icon badge: depletes linearly over the toast's
+   duration; hover pauses it in sync with the JS timer. The offset must match
+   RING_C in Toasts.tsx (r = 16.75 on a 36px viewBox). */
+@keyframes toast-ring {
+  from {
+    stroke-dashoffset: 0px;
+  }
+  to {
+    stroke-dashoffset: 105.24px;
+  }
+}
+
+/* ---------- misc animations ---------- */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ---------- text helpers ---------- */
+.micro-label {
+  @apply text-[11px] font-semibold uppercase tracking-[0.18em];
+}
+
+/* Section chrome: bold, tightly tracked headline type */
+.section-title {
+  @apply font-display font-extrabold tracking-[-0.02em] text-ink-hi;
+}
+
+/* Focus rings are dropped entirely, Spotify-style. The app is pointer- and
+   shortcut-driven, every interactive element already carries its own hover /
+   active / selected treatment, and a lingering rectangle over artwork-tinted
+   surfaces (the fullscreen button after leaving full screen, the active lyric
+   line, the player-bar title, sidebar rows) reads as a rendering glitch, not
+   as focus. Inputs keep their own focus:border-* edge treatment. */
+:focus,
+:focus-visible {
+  outline: none;
+}
+::-moz-focus-inner {
+  border: 0;
+}
+
+/* ---------- appearance settings ----------
+   Mirrors the "Reduce animation" and "Reduce dynamic blur" switches:
+   both land as classes on <html> so every surface honours them without each
+   component reading the setting. */
+html.reduce-motion *,
+html.reduce-motion *::before,
+html.reduce-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* Blur is what "reduce dynamic blur" removes; the glass keeps its tint and
+   hairline so surfaces still read as elevated, just not translucent. */
+html.reduce-blur .glass,
+html.reduce-blur .glass-strong,
+html.reduce-blur .glass-pill,
+html.reduce-blur .toast-beacon,
+html.reduce-blur .player-glass,
+html.reduce-blur .chrome-glass {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+html.reduce-blur .glass,
+html.reduce-blur .glass-strong,
+html.reduce-blur .glass-pill,
+html.reduce-blur .toast-beacon {
+  background: #121212;
+}
+html.reduce-blur .player-glass,
+html.reduce-blur .chrome-glass {
+  background: rgba(0, 0, 0, 0.92);
+}
+html.reduce-blur .top-fade {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.92), transparent);
+}
+
+/* ---------- liquid glass off ----------
+   Same chrome, no refraction: solid fills keep hierarchy without blur. */
+html.noglass .glass,
+html.noglass .glass-strong,
+html.noglass .glass-pill {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: rgb(var(--panel));
+  border-color: rgb(var(--hairline) / var(--hairline-alpha));
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.18);
+}
+html.noglass .player-glass,
+html.noglass .chrome-glass {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: rgb(var(--base) / 0.96);
+}
+
+/* ============================================================
+   Global motion system — one animation language for the app.
+   Only transform + opacity keyframes (GPU-friendly, no layout
+   properties), with physical-feeling durations:
+     micro  ~120ms  icon morphs, state pops
+     small  ~180ms  metadata swaps, hovers
+     medium ~260ms  artwork swaps, panels
+   Easings: ease-out enters, ease-in exits, gentle snap for press.
+   Decorative loops (drift/mesh/eq/shimmer) live with the components
+   that own them. Anything added here is automatically honoured by
+   the reduce-motion rules at the bottom of this file.
+   ============================================================ */
+:root {
+  --motion-micro: 120ms;
+  --motion-small: 180ms;
+  --motion-medium: 260ms;
+  --motion-large: 420ms;
+  --ease-enter: cubic-bezier(0.2, 0.8, 0.3, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 0.6, 1);
+  --ease-snap: cubic-bezier(0.34, 1.3, 0.5, 1);
+}
+
+/* ---------- reusable micro-interaction utilities ----------
+   NOTE: these set a *superset* transition-property (transform + shadow +
+   the color set Tailwind's transition-colors covers) instead of the
+   `transition` shorthand, so adding them never kills an existing color
+   hover — equal specificity, but nothing the element had is dropped. */
+
+/* Card lift: barely-there rise on hover. Pair with artwork zoom. */
+.card-lift {
+  transition-property: transform, box-shadow, background-color, border-color, color, fill, stroke, opacity;
+  transition-duration: var(--motion-small);
+  transition-timing-function: var(--ease-enter);
+}
+.card-lift:hover {
+  transform: translateY(-2px);
+}
+
+/* Keyed icon swap wrapper: remounts (via React key) on state change so the
+   incoming glyph pops instead of hard-cutting. Inline-grid keeps the box
+   identical so surrounding layout never shifts. */
+.icon-swap {
+  display: inline-grid;
+  place-items: center;
+}
+.icon-swap > * {
+  animation: icon-pop var(--motion-micro) var(--ease-enter);
+}
+@keyframes icon-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.55);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Mode state morph (shuffle + repeat): each button is one persistent svg
+   and its state overlays (shuffle slash, repeat "1" / slash) are always
+   mounted; toggling eases their dashoffset so states flow into each
+   other. Pair with pathLength={1} + strokeDasharray={1}. */
+.flow-dash {
+  transition: stroke-dashoffset 300ms var(--ease-enter);
+}
+
+/* ---------- keyframes ---------- */
+
+/* Artwork swaps: quick crossfade settling from a whisper of zoom. */
+@keyframes art-in {
+  from {
+    opacity: 0;
+    transform: scale(1.045);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.animate-art-in {
+  animation: art-in var(--motion-medium) var(--ease-enter);
+}
+
+/* Metadata swaps (title/artist): opacity-only so text never reflows. */
+@keyframes meta-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.animate-meta-in {
+  animation: meta-in var(--motion-small) var(--ease-enter);
+}
+
+/* Page content entrance: fade with a small rise. Fast enough to feel
+   instant, present enough to read as continuity between views. */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-rise-in {
+  animation: rise-in var(--motion-small) var(--ease-enter);
+}
+
+/* ---------- settings ----------
+   Settings as a structured room (views/SettingsView). A rail of categories on the left, where the
+   sidebar's open-row light marks the one you're in and slides as you move; one category at a time
+   on the right: its title and one line, then groups of rows in quiet cards. A row is a glyph tile,
+   the setting and what it does, and its control; choices are segmented pickers whose thumb slides.
+   The colour comes from the music, as everywhere: the page sits over the playing song's glow, the
+   account card is made of your own covers, the equalizer draws its curve live. The layout reads
+   the panel's width (a container): narrow, the rail becomes a strip of categories over the page. */
+.st-wrap {
+  --st-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  container: st-wrap / inline-size;
+  padding-bottom: 32px;
+}
+/* The rail takes about a quarter of the panel (176 to 224px), so the two columns hold at the
+   panel's usual width beside the sidebar and the right rail. */
+.st-layout {
+  display: grid;
+  grid-template-columns: clamp(176px, 27%, 224px) minmax(0, 1fr);
+  column-gap: clamp(24px, 4.5%, 48px);
+  align-items: start;
+  max-width: 1080px;
+}
+
+/* The rail: the page's title, the search, the categories. It stays in view while a long
+   category scrolls under it. */
+.st-rail {
+  position: sticky;
+  top: 20px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.st-title {
+  padding-left: 2px;
+  font-family: theme("fontFamily.display");
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  color: rgb(var(--ink-hi));
+}
+.st-search {
+  position: relative;
+  height: 40px;
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  border-radius: 12px;
+  background: rgb(var(--ink-hi) / 0.06);
+  box-shadow: inset 0 0 0 1px rgb(var(--ink-hi) / 0.06);
+  color: rgb(var(--ink-dim));
+  transition: background-color 0.16s var(--st-ease), box-shadow 0.16s var(--st-ease);
+}
+.st-search:hover {
+  box-shadow: inset 0 0 0 1px rgb(var(--ink-hi) / 0.14);
+}
+.st-search:focus-within {
+  background: rgb(var(--ink-hi) / 0.08);
+  box-shadow: inset 0 0 0 1px rgb(var(--ink-hi) / 0.34);
+}
+.st-search > svg {
+  position: absolute;
+  left: 12px;
+  pointer-events: none;
+}
+.st-search input {
+  width: 100%;
+  height: 100%;
+  padding: 0 36px;
+  border: 0;
+  background: transparent;
+  outline: none;
+  font-size: 14px;
+  color: rgb(var(--ink-hi));
+  user-select: text;
+}
+.st-search input::placeholder {
+  color: rgb(var(--ink-dim));
+}
+.st-search-clear {
+  position: absolute;
+  right: 6px;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  color: rgb(var(--ink-dim));
+  transition: color 0.16s var(--st-ease), background-color 0.16s var(--st-ease);
+}
+.st-search-clear:hover {
+  color: rgb(var(--ink-hi));
+  background: rgb(var(--ink-hi) / 0.08);
+}
+
+/* The categories. The light under the current one is the sidebar's open row (ink 8%, its hover
+   5%), one element that slides from category to category. */
+.st-nav {
+  position: relative;
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.st-nav-light {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--w, 0px);
+  height: var(--h, 0px);
+  transform: translate(var(--x, 0px), var(--y, 0px));
+  border-radius: 10px;
+  background: rgb(var(--ink-hi) / 0.08);
+  pointer-events: none;
+  transition: opacity 0.2s var(--st-ease);
+}
+.st-nav-light.is-moving {
+  transition: transform 0.42s var(--st-ease), width 0.42s var(--st-ease), height 0.42s var(--st-ease), opacity 0.2s var(--st-ease);
+}
+.st-nav-light.is-hidden {
+  opacity: 0;
+}
+.st-nav-item {
+  position: relative;
+  z-index: 1;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  color: rgb(var(--ink-hi) / 0.62);
+  transition: color 0.16s var(--st-ease), background-color 0.16s var(--st-ease);
+}
+.st-nav-item svg {
+  flex: none;
+  color: rgb(var(--ink-hi) / 0.45);
+  transition: color 0.16s var(--st-ease);
+}
+.st-nav-item[aria-current],
+.st-nav-item[aria-current] svg {
+  color: rgb(var(--ink-hi));
+}
+@media (hover: hover) {
+  .st-nav-item:hover {
+    color: rgb(var(--ink-hi));
+    background: rgb(var(--ink-hi) / 0.05);
+  }
+  .st-nav-item:hover svg {
+    color: rgb(var(--ink-hi) / 0.85);
+  }
+  .st-nav-item[aria-current]:hover {
+    background: transparent;
+  }
+}
+
+/* The page: one category, its title and one line, then its groups. */
+.st-main {
+  container: st-main / inline-size;
+  min-width: 0;
+  max-width: 720px;
+}
+.st-pane-head {
+  margin-bottom: 28px;
+}
+.st-pane-title {
+  font-family: theme("fontFamily.display");
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  color: rgb(var(--ink-hi));
+}
+.st-pane-lede {
+  margin-top: 6px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: rgb(var(--ink-dim));
+}
+.st-group + .st-group {
+  margin-top: 28px;
+}
+.st-group-title {
+  margin: 0 0 10px 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgb(var(--ink-hi) / 0.55);
+}
+.st-card {
+  overflow: hidden;
+  border-radius: 16px;
+  background: rgb(var(--ink-hi) / 0.045);
+  box-shadow: inset 0 0 0 1px rgb(var(--ink-hi) / 0.06);
+}
+.st-note {
+  max-width: 68ch;
+  margin: 10px 4px 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: rgb(var(--ink-hi) / 0.45);
+  text-wrap: pretty;
+}
+/* Search: every category's matches, each under its own name. */
+.st-result {
+  margin-bottom: 36px;
+}
+.st-result-title {
+  margin: 0 0 14px 4px;
+  font-family: theme("fontFamily.display");
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: rgb(var(--ink-hi));
+}
+.st-empty {
+  padding: 4px;
+  font-size: 14px;
+  color: rgb(var(--ink-dim));
+}
+
+/* A row: glyph tile, the setting and what it does, its control. Under the text, in its column, a
+   slider or a choice; across the row, the equalizer. Hairlines run from the text's edge. */
+.st-row {
+  position: relative;
+  min-height: 64px;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  column-gap: 14px;
+  align-items: center;
+  padding: 12px 16px;
+}
+.st-row + .st-row::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 66px;
+  right: 0;
+  height: 1px;
+  background: rgb(var(--ink-hi) / 0.06);
+  pointer-events: none;
+}
+.st-searching .st-row::before {
+  display: none;
+}
+.st-row-icon {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: rgb(var(--ink-hi) / 0.07);
+  color: rgb(var(--ink-hi) / 0.88);
+  transition: background-color 0.16s var(--st-ease), color 0.16s var(--st-ease);
+}
+.st-row-text {
+  min-width: 0;
+}
+.st-row-title {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14.5px;
+  font-weight: 500;
+  line-height: 20px;
+  color: rgb(var(--ink-hi));
+}
+.st-row-note {
+  margin-top: 2px;
+  font-size: 13px;
+  line-height: 18px;
+  color: rgb(var(--ink-dim));
+  text-wrap: pretty;
+}
+.st-row-control {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.st-row-body {
+  grid-column: 2 / -1;
+  grid-row: 2;
+  min-width: 0;
+  margin-top: 12px;
+}
+.st-row-wide {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  min-width: 0;
+  margin-top: 14px;
+  cursor: default;
+}
+.st-row.is-action {
+  cursor: pointer;
+  transition: background-color 0.16s var(--st-ease);
+}
+@media (hover: hover) {
+  .st-row.is-action:hover:not(:has(.st-row-wide:hover, .st-row-body:hover)) {
+    background: rgb(var(--ink-hi) / 0.035);
+  }
+  .st-row.is-action:hover:not(:has(.st-row-wide:hover, .st-row-body:hover)) .st-row-icon {
+    background: rgb(var(--ink-hi) / 0.11);
+    color: rgb(var(--ink-hi));
+  }
+}
+.st-row.is-action:active:not(:has(.st-row-wide:active, .st-row-body:active)) {
+  background: rgb(var(--ink-hi) / 0.06);
+}
+.st-row.is-off .st-row-icon,
+.st-row.is-off .st-row-text,
+.st-row.is-off .st-value {
+  opacity: 0.45;
+}
+.st-row.is-danger .st-row-icon {
+  background: rgb(229 72 77 / 0.12);
+  color: #ff8589;
+}
+.st-badge {
+  flex: none;
+  padding: 1px 7px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 18px;
+  color: rgb(var(--ink-hi) / 0.85);
+  background: rgb(var(--ink-hi) / 0.1);
+}
+.st-value {
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: rgb(var(--ink-hi) / 0.8);
+}
+/* A slider's reading: its widest values laid invisibly under the one shown, so its width holds. */
+.st-reading {
+  display: inline-grid;
+  justify-items: end;
+}
+.st-reading > * {
+  grid-area: 1 / 1;
+}
+.st-reading-size {
+  visibility: hidden;
+}
+/* A picker's value: the up-down chevrons say it opens a list. */
+.st-pick {
+  max-width: 240px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px 0 12px;
+  border-radius: 10px;
+  background: rgb(var(--ink-hi) / 0.07);
+  font-size: 13.5px;
+  font-weight: 500;
+  color: rgb(var(--ink-hi));
+  transition: background-color 0.16s var(--st-ease);
+}
+.st-pick svg {
+  color: rgb(var(--ink-hi) / 0.5);
+}
+/* A page or a dialog: the arrow leans the way it goes. */
+.st-go {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  color: rgb(var(--ink-hi) / 0.4);
+  transition: transform 0.25s var(--st-ease), color 0.16s var(--st-ease);
+}
+@media (hover: hover) {
+  .st-row.is-action:hover .st-pick {
+    background: rgb(var(--ink-hi) / 0.12);
+  }
+  .st-row.is-action:hover .st-go {
+    color: rgb(var(--ink-hi));
+    transform: translateX(2px);
+  }
+}
+
+/* Buttons: plain, the one white one, danger. */
+.st-btn {
+  flex: none;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 14px;
+  border-radius: 999px;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgb(var(--ink-hi));
+  background: rgb(var(--ink-hi) / 0.08);
+  box-shadow: inset 0 0 0 1px rgb(var(--ink-hi) / 0.06);
+  transition: background-color 0.16s var(--st-ease), transform 0.16s var(--st-ease);
+}
+.st-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.st-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.st-btn.is-primary {
+  color: #000;
+  background: rgb(var(--ink-hi));
+  box-shadow: none;
+}
+.st-btn.is-danger {
+  color: #ff8589;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px rgb(229 72 77 / 0.35);
+}
+@media (hover: hover) {
+  .st-btn:hover:not(:disabled) {
+    background: rgb(var(--ink-hi) / 0.14);
+  }
+  .st-btn.is-primary:hover:not(:disabled) {
+    background: rgb(var(--ink-hi) / 0.86);
+  }
+  .st-btn.is-danger:hover:not(:disabled) {
+    background: rgb(229 72 77 / 0.12);
+  }
+}
+.st-wrap button:focus-visible,
+.st-wrap .st-row[role="button"]:focus-visible {
+  outline: 2px solid rgb(var(--ink-hi) / 0.72);
+  outline-offset: 2px;
+}
+.st-wrap .st-row[role="button"]:focus-visible {
+  outline-offset: -2px;
+  border-radius: 16px;
+}
+
+/* A choice: the options side by side, the thumb sliding to the one picked. */
+.st-choice {
+  position: relative;
+  max-width: 420px;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  padding: 3px;
+  border-radius: 12px;
+  background: rgb(var(--ink-hi) / 0.06);
+  box-shadow: inset 0 0 0 1px rgb(var(--ink-hi) / 0.05);
+}
+.st-choice-thumb {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc((100% - 6px) / var(--n));
+  transform: translateX(calc(100% * var(--i)));
+  border-radius: 9px;
+  background: rgb(var(--ink-hi) / 0.16);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.35), inset 0 0 0 1px rgb(var(--ink-hi) / 0.08);
+  pointer-events: none;
+  transition: transform 0.36s var(--st-ease);
+}
+.st-choice-option {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  height: 32px;
+  padding: 0 8px;
+  overflow: hidden;
+  border-radius: 9px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgb(var(--ink-hi) / 0.58);
+  transition: color 0.2s var(--st-ease);
+}
+.st-choice-option[aria-checked="true"] {
+  color: rgb(var(--ink-hi));
+}
+@media (hover: hover) {
+  .st-choice-option:hover {
+    color: rgb(var(--ink-hi) / 0.92);
+  }
+}
+.st-wrap .st-choice-option:focus-visible {
+  outline-offset: -2px;
+}
+
+/* A slider, the stops it rests on, and what its two ends mean. Its box is a fixed 32px band to aim at:
+   the 4px bar runs across it 16px down (where the bar sat before, the box pulled up into the row's
+   gap) and the stops sit in its lower part, so a click on a stop lands there. Nothing about it changes
+   size on hover, or the card would move under the pointer; the thumb grows instead. */
+.st-range {
+  position: relative;
+  max-width: 440px;
+  margin-top: -12px;
+}
+.st-range input {
+  display: block;
+  width: 100%;
+}
+.st-range input[type="range"].slider,
+.st-range input[type="range"].slider:hover {
+  height: 32px;
+  border-radius: 0;
+  background: transparent;
+  transition: none;
+}
+.st-range input:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+/* The bar fills from where the slider starts: its low end, or the middle of a two-sided one (lyrics
+   timing fills from In sync, speed from 1x). */
+.st-range input[type="range"].slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(
+    to right,
+    rgb(255 255 255 / 0.14) var(--from, 0%),
+    #fff var(--from, 0%),
+    #fff var(--fill, 0%),
+    rgb(255 255 255 / 0.14) var(--fill, 0%)
+  );
+}
+.st-range input[type="range"].slider::-webkit-slider-thumb {
+  margin-top: -4.5px; /* (4px bar - 13px thumb) / 2: centred on the bar */
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.st-range input[type="range"].slider:not(:disabled):hover::-webkit-slider-thumb {
+  transform: scale(1.15);
+}
+.st-range input[type="range"].slider:not(:disabled):active::-webkit-slider-thumb {
+  transform: scale(1.15);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.4), 0 0 0 6px rgb(255 255 255 / 0.12);
+}
+.st-range input[type="range"].slider:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.4), 0 0 0 3px rgb(var(--ink-hi) / 0.72);
+}
+/* The stops, 7px under the bar: taller every whole step, tallest where the slider starts, the one it
+   rests on lit. They let clicks through to the slider. */
+.st-range-marks {
+  position: absolute;
+  top: 25px;
+  left: 0;
+  right: 0;
+  height: 9px;
+  pointer-events: none;
+}
+.st-range-marks i {
+  position: absolute;
+  top: 0;
+  width: 2px;
+  height: 4px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: rgb(var(--ink-hi) / 0.18);
+  transition: background-color 0.16s var(--st-ease);
+}
+.st-range-marks i.is-major {
+  height: 7px;
+  background: rgb(var(--ink-hi) / 0.3);
+}
+.st-range-marks i.is-origin {
+  height: 9px;
+  background: rgb(var(--ink-hi) / 0.5);
+}
+.st-range-marks i.is-on {
+  background: rgb(var(--ink-hi));
+}
+.st-range input:disabled ~ .st-range-marks {
+  opacity: 0.45;
+}
+.st-range-ends {
+  margin-top: 7px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: rgb(var(--ink-hi) / 0.4);
+}
+
+/* Who you are: the profile button's avatar, your name, your backup's state, over a slow wall of
+   your own covers leaning back on the right (the collection pages' wall, small). */
+.st-id {
+  position: relative;
+  isolation: isolate;
+  min-height: 128px;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  column-gap: 18px;
+  align-items: center;
+  padding: 24px;
+  border-radius: 20px;
+  background: rgb(var(--ink-hi) / 0.045);
+  box-shadow: inset 0 0 0 1px rgb(var(--ink-hi) / 0.07);
+}
+.st-id-wall {
+  position: absolute;
+  z-index: -1;
+  top: -48px;
+  bottom: -48px;
+  left: 42%;
+  right: -60px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  transform: rotate(-8deg);
+  filter: brightness(0.55) saturate(1.1);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, rgb(0 0 0 / 0.35) 35%, #000 80%);
+  mask-image: linear-gradient(90deg, transparent 0%, rgb(0 0 0 / 0.35) 35%, #000 80%);
+  pointer-events: none;
+}
+.st-id-wall-row {
+  width: max-content;
+  display: flex;
+  animation: cover-wall-drift linear infinite;
+  will-change: transform;
+}
+.st-id-tile {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  margin-right: 10px;
+  border-radius: 8px;
+  background: rgb(255 255 255 / 0.05) center / cover no-repeat;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.4);
+}
+.st-id-avatar {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1;
+  color: rgb(0 0 0 / 0.85);
+  box-shadow: 0 0 0 4px rgb(255 255 255 / 0.06), 0 10px 26px rgb(0 0 0 / 0.4);
+}
+/* Where the words run onto the covers, a soft shadow keeps them reading. */
+.st-id-text {
+  min-width: 0;
+  text-shadow: 0 1px 10px rgb(0 0 0 / 0.55);
+}
+.st-id-name {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: theme("fontFamily.display");
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: rgb(var(--ink-hi));
+}
+.st-id-user {
+  margin-top: 2px;
+  font-size: 14px;
+  color: rgb(var(--ink-hi) / 0.72);
+}
+.st-id-sync {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: rgb(var(--ink-dim));
+}
+/* Your backup's state, as a light: green synced, amber on its way, red failing. */
+.st-id-sync::before {
+  content: "";
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgb(var(--ink-hi) / 0.35);
+}
+.st-id-sync.is-good::before {
+  background: #4cc38a;
+}
+.st-id-sync.is-busy::before {
+  background: #f0b45a;
+  animation: st-pulse 1.4s ease-in-out infinite;
+}
+.st-id-sync.is-bad::before {
+  background: #e5484d;
+}
+@keyframes st-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+.st-id-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+/* Over the covers, the buttons keep a dark ground so they always read. */
+.st-id .st-btn {
+  background: rgb(14 14 16 / 0.74);
+  box-shadow: inset 0 0 0 1px rgb(var(--ink-hi) / 0.12);
+}
+@media (hover: hover) {
+  .st-id .st-btn:hover:not(:disabled) {
+    background: rgb(38 38 42 / 0.86);
+  }
+}
+
+/* About: the brand's stacked lockup in the kit's proportions (the wordmark's cap height is 0.767 of
+   its height, 23px here; the mark is 2.2 cap heights tall and sits 0.55 above it), then the version
+   on a pill and the licence, all centred. */
+.st-about {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 36px 24px 30px;
+  border-radius: 20px;
+  text-align: center;
+  background: rgb(var(--ink-hi) / 0.045);
+  box-shadow: inset 0 0 0 1px rgb(var(--ink-hi) / 0.07);
+}
+.st-about-mark {
+  display: block;
+  width: auto;
+  height: 51px;
+  margin-bottom: 13px;
+}
+.st-about-word {
+  display: block;
+  width: auto;
+  height: 30px;
+}
+.st-about-version {
+  margin-top: 20px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: rgb(var(--ink-hi) / 0.85);
+  background: rgb(var(--ink-hi) / 0.07);
+  box-shadow: inset 0 0 0 1px rgb(var(--ink-hi) / 0.06);
+}
+.st-about-meta {
+  margin-top: 10px;
+  font-size: 13px;
+  color: rgb(var(--ink-dim));
+}
+
+/* The equalizer: presets, then a line per band on a board ruled every 6 dB (each line a real vertical
+   slider, invisible under the knob it moves), then Prevent clipping. Nothing here changes size while a
+   band moves, or a drag would shift the board under the pointer. */
+.st-eq {
+  transition: opacity 0.25s var(--st-ease);
+}
+.st-eq.is-off {
+  opacity: 0.42;
+}
+.st-eq-presets {
+  margin-bottom: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.st-chip {
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: rgb(var(--ink-hi) / 0.8);
+  background: rgb(var(--ink-hi) / 0.06);
+  box-shadow: inset 0 0 0 1px rgb(var(--ink-hi) / 0.05);
+  transition: background-color 0.16s var(--st-ease), color 0.16s var(--st-ease), transform 0.16s var(--st-ease);
+}
+.st-chip[aria-pressed="true"] {
+  color: #000;
+  background: rgb(var(--ink-hi));
+  box-shadow: none;
+}
+.st-chip.is-new {
+  border: 1px dashed rgb(var(--ink-hi) / 0.3);
+  background: transparent;
+  box-shadow: none;
+  color: rgb(var(--ink-hi) / 0.75);
+}
+.st-chip:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.st-chip:disabled {
+  cursor: not-allowed;
+}
+.st-eq:not(.is-off) .st-chip:disabled {
+  opacity: 0.4;
+}
+@media (hover: hover) {
+  .st-chip:hover:not(:disabled):not([aria-pressed="true"]) {
+    color: rgb(var(--ink-hi));
+    background: rgb(var(--ink-hi) / 0.12);
+  }
+}
+/* The board: the bands side by side, with the rules' dB in the gutter on its left. */
+.st-eq-board {
+  padding: 14px 12px 12px 42px;
+  border-radius: 14px;
+  background: rgb(0 0 0 / 0.22);
+  box-shadow: inset 0 0 0 1px rgb(var(--ink-hi) / 0.05);
+  touch-action: none;
+}
+.st-eq-bands {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+}
+/* The rules run level with the rails: below each band's gain (18px) and the gap under it (8px). */
+.st-eq-rules {
+  position: absolute;
+  top: 26px;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+}
+.st-eq-rules span {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  margin-top: -0.5px;
+  background: rgb(var(--ink-hi) / 0.06);
+}
+.st-eq-rules span.is-zero {
+  background: rgb(var(--ink-hi) / 0.16);
+}
+.st-eq-rules b {
+  position: absolute;
+  top: 50%;
+  right: calc(100% + 10px);
+  transform: translateY(-50%);
+  white-space: nowrap;
+  font-size: 10.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: rgb(var(--ink-hi) / 0.32);
+}
+/* A band: its gain, its line, its frequency; lit under the pointer. */
+.st-eq-band {
+  position: relative;
+  isolation: isolate;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+.st-eq.is-off .st-eq-band {
+  cursor: not-allowed;
+}
+.st-eq-band::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -6px 3px;
+  border-radius: 10px;
+  transition: background-color 0.16s var(--st-ease);
+}
+@media (hover: hover) {
+  .st-eq:not(.is-off) .st-eq-band:hover::before {
+    background: rgb(var(--ink-hi) / 0.045);
+  }
+}
+.st-eq-gain,
+.st-eq-hz {
+  height: 18px;
+  line-height: 18px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.st-eq-gain {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgb(var(--ink-hi) / 0.36);
+  transition: color 0.16s var(--st-ease);
+}
+.st-eq-band.is-set .st-eq-gain {
+  color: rgb(var(--ink-hi) / 0.9);
+}
+.st-eq:not(.is-off) .st-eq-band:is(:hover, :focus-within, :active) .st-eq-gain {
+  color: rgb(var(--ink-hi));
+}
+.st-eq-hz {
+  font-size: 11px;
+  color: rgb(var(--ink-hi) / 0.45);
+}
+/* The line, from +12 to -12 (half a knob in from the rail's ends, where the thumb stops), the fill
+   from 0 dB to the knob, and the knob. Their places come from the view (lib/eqScale's eqY). */
+.st-eq-rail {
+  position: relative;
+  width: 100%;
+}
+.st-eq-rail::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 50%;
+  width: 4px;
+  margin-left: -2px;
+  border-radius: 2px;
+  background: rgb(var(--ink-hi) / 0.12);
+  pointer-events: none;
+}
+.st-eq-fill {
+  position: absolute;
+  top: var(--top);
+  left: 50%;
+  width: 4px;
+  height: var(--len);
+  margin-left: -2px;
+  border-radius: 2px;
+  background: rgb(var(--ink-hi));
+  pointer-events: none;
+  transition: top 0.32s var(--st-ease), height 0.32s var(--st-ease);
+}
+.st-eq-knob {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgb(0 0 0 / 0.5), 0 2px 8px rgb(0 0 0 / 0.5);
+  pointer-events: none;
+  transform: translate(-50%, calc(var(--y) - 50%)) scale(var(--s, 1));
+  transition: transform 0.32s var(--st-ease), box-shadow 0.16s var(--st-ease);
+}
+.st-eq:not(.is-off) .st-eq-band:hover .st-eq-knob {
+  --s: 1.12;
+}
+.st-eq:not(.is-off) .st-eq-band:active .st-eq-knob {
+  --s: 1.18;
+  box-shadow: 0 0 0 3px rgb(0 0 0 / 0.5), 0 0 0 9px rgb(255 255 255 / 0.1), 0 2px 8px rgb(0 0 0 / 0.5);
+}
+.st-eq-band input:focus-visible ~ .st-eq-knob {
+  box-shadow: 0 0 0 3px rgb(0 0 0 / 0.5), 0 0 0 5px rgb(255 255 255 / 0.75);
+}
+/* The band's real slider: the whole rail, its height set in px by the view, invisible. Its 16px
+   thumb travels exactly where the knob is drawn, so a drag moves the knob under the pointer. */
+.st-eq-band input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+  writing-mode: vertical-lr;
+  direction: rtl;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  opacity: 0;
+  cursor: pointer;
+}
+.st-eq-band input:disabled {
+  cursor: not-allowed;
+}
+.st-eq-band input::-webkit-slider-runnable-track {
+  background: transparent;
+}
+.st-eq-band input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+}
+/* While a band is dragged, its knob and fill follow the pointer without easing; a preset eases. */
+.st-eq.is-dragging .st-eq-fill,
+.st-eq.is-dragging .st-eq-knob {
+  transition: none;
+}
+.st-eq-clip {
+  margin-top: 18px;
+  padding-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border-top: 1px solid rgb(var(--ink-hi) / 0.06);
+}
+.st-eq-clip-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.st-eq-clip-title {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: rgb(var(--ink-hi));
+}
+.st-eq-clip-note {
+  font-size: 12.5px;
+  color: rgb(var(--ink-dim));
+}
+
+/* A category's entrance: its title, then its groups, rising into place; going back up the list,
+   they come down from above instead. */
+@keyframes st-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes st-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.st-pane > :is(.st-pane-head, .st-group) {
+  animation: st-in 0.5s var(--st-ease) both;
+  animation-delay: calc(var(--k, 0) * 45ms);
+}
+.st-pane.is-up > :is(.st-pane-head, .st-group) {
+  animation-name: st-in-up;
+}
+.st-pane > :nth-child(2) {
+  --k: 1;
+}
+.st-pane > :nth-child(3) {
+  --k: 2;
+}
+.st-pane > :nth-child(4) {
+  --k: 3;
+}
+.st-pane > :nth-child(5) {
+  --k: 4;
+}
+.st-pane > :nth-child(n + 6) {
+  --k: 5;
+}
+
+/* A narrow panel: the rail becomes a strip of categories over the page. */
+@container st-wrap (max-width: 600px) {
+  .st-layout {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 28px;
+  }
+  .st-rail {
+    position: static;
+  }
+  /* The strip scrolls sideways; its ends fade, inside the padding, so a category leaving the edge
+     softens instead of being cut. */
+  .st-nav {
+    flex-direction: row;
+    gap: 4px;
+    margin: 16px -16px 0;
+    padding: 0 16px 4px;
+    overflow-x: auto;
+    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
+    mask-image: linear-gradient(90deg, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
+  }
+  .st-nav::-webkit-scrollbar {
+    display: none;
+  }
+  .st-nav-item {
+    flex: none;
+    height: 36px;
+  }
+  .st-main {
+    max-width: none;
+  }
+}
+/* A narrow page: the account card's buttons go under the name. */
+@container st-main (max-width: 600px) {
+  .st-id {
+    grid-template-columns: 56px minmax(0, 1fr);
+    row-gap: 16px;
+  }
+  .st-id-avatar {
+    width: 56px;
+    height: 56px;
+    font-size: 24px;
+  }
+  .st-id-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .st-pane > :is(.st-pane-head, .st-group),
+  .st-id-wall-row,
+  .st-id-sync.is-busy::before {
+    animation: none;
+  }
+  .st-nav-light.is-moving,
+  .st-choice-thumb,
+  .st-eq-fill,
+  .st-eq-knob {
+    transition: none;
+  }
+}
+
+/* ---------- onboarding stage ----------
+   ByTune's own look: a page lit by the music. On the right, a drum of covers in 3D
+   (components/CoverDrum), the collection walls' rows wrapped round into rings; the cover in
+   focus lights the page behind it. The words sit on the dark side, the left: the brand, then
+   one step at a time. The first step says what ByTune is and lists the ways in as rows that
+   light up with that same cover. No colour of its own. */
+
+.ob-root {
+  --ob-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --ob-gutter: clamp(48px, 7.5vw, 120px);
+  --ob-line: rgb(var(--ink-hi) / 0.1);
+  --ob-faint: rgb(var(--ink-hi) / 0.46);
+}
+
+/* The words scroll on their own when a step is taller than the window. This layer spans the
+   window above the drum but lets the pointer through to it; only the left side, the words'
+   own strip from edge to edge of the window's height, takes the pointer (and the wheel). */
+.ob-scroll {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  pointer-events: none;
+}
+/* Its scrollbar would sit at the window's far edge, over the drum, where the pointer passes
+   through it: the words scroll by wheel, trackpad and keyboard focus instead. */
+.ob-scroll::-webkit-scrollbar {
+  display: none;
+}
+/* Its left gutter is shared by the brand and every step. */
+.ob-side {
+  pointer-events: auto;
+  width: calc(var(--ob-gutter) + 430px);
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 0 0 40px var(--ob-gutter);
+}
+.ob-brand {
+  display: flex;
+  width: max-content;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+  animation: ob-fade 0.9s var(--ob-ease) 0.15s both;
+}
+.ob-brand-mark {
+  height: 26px;
+  width: auto;
+}
+.ob-brand-word {
+  height: 16px;
+  width: auto;
+}
+/* Every step lives in one 400px column: titles, fields, buttons and the ways in share its edges. */
+.ob-column {
+  width: 100%;
+  max-width: 400px;
+  margin-block: auto;
+  padding-block: 40px 24px;
+}
+
+/* Type. The first step's headline is the one big moment; every other step gets a smaller
+   title in the same voice. */
+.ob-hero,
+.ob-title {
+  font-family: theme("fontFamily.display");
+  font-weight: 700;
+  color: rgb(var(--ink-hi));
+}
+.ob-hero {
+  font-size: clamp(40px, 3.6vw, 54px);
+  line-height: 1.04;
+  letter-spacing: -0.04em;
+  margin-left: -0.04em;
+  white-space: nowrap;
+  width: max-content;
+}
+/* Its second line answers the first, a step back in the dark. */
+.ob-line-dim > span {
+  color: rgb(var(--ink-hi) / 0.42);
+}
+.ob-title {
+  font-size: 34px;
+  line-height: 1.08;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+.ob-head {
+  margin-bottom: 28px;
+}
+.ob-lede {
+  margin-top: 12px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: rgb(var(--ink-hi) / 0.62);
+  text-wrap: balance;
+}
+.ob-hero-lede {
+  margin-top: 16px;
+  font-size: 16px;
+}
+
+/* The headline's two lines rise out of their own masks (room left for descenders). */
+.ob-line {
+  display: block;
+  overflow: clip;
+  padding-bottom: 0.12em;
+  margin-bottom: -0.12em;
+}
+.ob-line > span {
+  display: block;
+  animation: ob-line-up 1.1s var(--ob-ease) both;
+  animation-delay: calc(var(--ob-base, 0ms) + var(--d, 0ms));
+}
+@keyframes ob-line-up {
+  from {
+    transform: translateY(108%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+/* Back to the ways in, above a step's title; its arrow sits on the column's edge. */
+.ob-back-link {
+  height: 32px;
+  margin: -8px 0 16px -10px;
+  padding: 0 12px 0 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  font-size: 14px;
+  color: rgb(var(--ink-dim));
+  transition: color 0.16s var(--ob-ease), background-color 0.16s var(--ob-ease);
+}
+.ob-back-link svg {
+  transition: transform 0.25s var(--ob-ease);
+}
+@media (hover: hover) {
+  .ob-back-link:hover:not(:disabled) {
+    color: rgb(var(--ink-hi));
+    background: rgb(var(--ink-hi) / 0.06);
+  }
+  .ob-back-link:hover:not(:disabled) svg {
+    transform: translateX(-3px);
+  }
+}
+.ob-back-link:disabled {
+  opacity: 0.4;
+}
+
+/* The ways in: rows like a list of songs, each saying what it means. The list hangs its
+   row padding outside the column, so the tiles line up with the words above. A row lights up
+   with the cover in focus on the drum (--ob-cover, from CoverDrum) as the pointer or the
+   keyboard reaches it. */
+.ob-ways {
+  display: grid;
+  gap: 4px;
+  width: calc(100% + 24px);
+  margin: 32px 0 0 -12px;
+}
+.ob-way {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  width: 100%;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 16px 0 12px;
+  border-radius: 16px;
+  text-align: left;
+  transition: background-color 0.2s var(--ob-ease), transform 0.2s var(--ob-ease);
+}
+.ob-way::before {
+  content: "";
+  position: absolute;
+  inset: -60% -10%;
+  z-index: -1;
+  background: var(--ob-cover) center / cover no-repeat;
+  filter: blur(32px) saturate(1.5);
+  opacity: 0;
+  transition: opacity 0.35s var(--ob-ease);
+}
+.ob-way-icon {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: rgb(var(--ink-hi) / 0.08);
+  box-shadow: inset 0 0 0 1px rgb(var(--ink-hi) / 0.06);
+  color: rgb(var(--ink-hi) / 0.9);
+}
+/* The way ByTune suggests: its tile is the one white thing in the list. */
+.ob-way-icon.is-main {
+  background: rgb(var(--ink-hi));
+  box-shadow: none;
+  color: #000;
+}
+.ob-way-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ob-way-title {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 20px;
+  color: rgb(var(--ink-hi));
+}
+.ob-way-note {
+  font-size: 13px;
+  line-height: 18px;
+  color: rgb(var(--ink-hi) / 0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ob-way-go {
+  flex: none;
+  color: rgb(var(--ink-hi) / 0.3);
+  transition: transform 0.25s var(--ob-ease), color 0.2s var(--ob-ease);
+}
+@media (hover: hover) {
+  .ob-way:hover:not(:disabled) {
+    background: rgb(var(--ink-hi) / 0.05);
+  }
+  .ob-way:hover:not(:disabled)::before {
+    opacity: 0.3;
+  }
+  .ob-way:hover:not(:disabled) .ob-way-go {
+    transform: translateX(3px);
+    color: rgb(var(--ink-hi));
+  }
+}
+.ob-way:focus-visible {
+  background: rgb(var(--ink-hi) / 0.05);
+}
+.ob-way:focus-visible::before {
+  opacity: 0.3;
+}
+.ob-way:focus-visible .ob-way-go {
+  color: rgb(var(--ink-hi));
+}
+.ob-way:active:not(:disabled) {
+  transform: scale(0.99);
+}
+.ob-way:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+/* The way under way stays bright while the others wait. */
+.ob-way.is-busy:disabled {
+  opacity: 1;
+  cursor: progress;
+}
+
+/* Fields: the label sits inside and moves up out of the way once there's text. */
+.ob-fields {
+  display: grid;
+  gap: 12px;
+}
+.ob-field {
+  position: relative;
+}
+.ob-input {
+  display: block;
+  width: 100%;
+  height: 56px;
+  padding: 24px 18px 12px;
+  border: 0;
+  border-radius: 16px;
+  background: rgb(var(--ink-hi) / 0.05);
+  box-shadow: inset 0 0 0 1px var(--ob-line);
+  color: rgb(var(--ink-hi));
+  font-size: 15px;
+  line-height: 20px;
+  outline: none;
+  user-select: text;
+  transition: background-color 0.16s var(--ob-ease), box-shadow 0.16s var(--ob-ease);
+}
+.ob-input.ob-trail {
+  padding-right: 52px;
+}
+.ob-input:hover:not(:disabled) {
+  box-shadow: inset 0 0 0 1px rgb(var(--ink-hi) / 0.18);
+}
+.ob-input:focus {
+  background: rgb(var(--ink-hi) / 0.07);
+  box-shadow: inset 0 0 0 1px rgb(var(--ink-hi) / 0.45);
+}
+.ob-input:disabled {
+  opacity: 0.5;
+}
+.ob-label {
+  position: absolute;
+  left: 18px;
+  top: 18px;
+  font-size: 15px;
+  line-height: 20px;
+  color: rgb(var(--ink-dim));
+  pointer-events: none;
+  transform-origin: 0 0;
+  transition: transform 0.2s var(--ob-ease), color 0.2s var(--ob-ease);
+}
+.ob-input:focus + .ob-label,
+.ob-input:not(:placeholder-shown) + .ob-label {
+  transform: translateY(-9px) scale(0.8);
+}
+.ob-input:focus + .ob-label {
+  color: rgb(var(--ink-hi) / 0.78);
+}
+.ob-reveal {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  color: rgb(var(--ink-dim));
+  transition: color 0.16s var(--ob-ease), background-color 0.16s var(--ob-ease);
+}
+.ob-reveal:hover {
+  color: rgb(var(--ink-hi));
+  background: rgb(var(--ink-hi) / 0.08);
+}
+/* The box's hint shows on the typing line only while it's focused and empty, so a form reads as
+   just its boxes until you're in one. */
+.ob-input::placeholder {
+  color: transparent;
+  transition: color 0.2s var(--ob-ease);
+}
+.ob-input:focus::placeholder {
+  color: rgb(var(--ink-hi) / 0.42);
+}
+/* What the box knows about its text, on its top line opposite the label: nothing shifts. */
+.ob-field-status {
+  position: absolute;
+  top: 9px;
+  right: 18px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  line-height: 16px;
+  color: rgb(var(--ink-hi) / 0.5);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.ob-field-status.is-good {
+  color: #4cc38a;
+}
+.ob-field-status.is-warn {
+  color: #f0b45a;
+}
+
+/* Buttons: the app's pills, as wide as the fields above them. The white one is the only
+   solid white thing on the page. */
+.ob-actions {
+  display: grid;
+  gap: 12px;
+  margin-top: 28px;
+}
+.ob-fields + .ob-actions,
+.ob-error + .ob-actions,
+.ob-aside + .ob-actions {
+  margin-top: 24px;
+}
+.ob-btn {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 0 24px;
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 600;
+  transition: background-color 0.18s var(--ob-ease), box-shadow 0.18s var(--ob-ease), transform 0.2s var(--ob-ease);
+}
+.ob-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.ob-btn-primary {
+  background: rgb(var(--ink-hi));
+  color: #000;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.35);
+}
+.ob-btn-secondary {
+  background: rgb(var(--ink-hi) / 0.08);
+  color: rgb(var(--ink-hi));
+  box-shadow: inset 0 0 0 1px rgb(var(--ink-hi) / 0.12);
+}
+@media (hover: hover) {
+  .ob-btn-primary:hover:not(:disabled) {
+    background: rgb(var(--ink-hi) / 0.88);
+  }
+  .ob-btn-secondary:hover:not(:disabled) {
+    background: rgb(var(--ink-hi) / 0.12);
+    box-shadow: inset 0 0 0 1px rgb(var(--ink-hi) / 0.2);
+  }
+}
+.ob-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* Quiet text actions, and the one inline link (it keeps its underline at rest). */
+.ob-text {
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: rgb(var(--ink-dim));
+  transition: color 0.16s var(--ob-ease);
+}
+.ob-text:hover:not(:disabled) {
+  color: rgb(var(--ink-hi));
+}
+.ob-text:disabled {
+  opacity: 0.4;
+}
+.ob-link {
+  color: rgb(var(--ink-hi));
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: rgb(var(--ink-hi) / 0.32);
+  text-underline-offset: 4px;
+  transition: text-decoration-color 0.16s var(--ob-ease);
+}
+.ob-link:hover:not(:disabled) {
+  text-decoration-color: rgb(var(--ink-hi));
+}
+.ob-link:disabled {
+  opacity: 0.4;
+}
+.ob-switch {
+  margin-top: 20px;
+  font-size: 14px;
+  color: rgb(var(--ink-dim));
+}
+.ob-foot {
+  display: flex;
+  margin-top: 12px;
+}
+
+.ob-aside {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ob-faint);
+  text-wrap: pretty;
+}
+.ob-aside svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.ob-error {
+  margin-top: 16px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #ff9b9e;
+  background: rgb(229 72 77 / 0.1);
+  box-shadow: inset 0 0 0 1px rgb(229 72 77 / 0.22);
+  overflow-wrap: anywhere;
+}
+.ob-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: rgb(var(--ink-dim));
+}
+
+/* Focus: the shell drops focus rings app-wide; the onboarding brings them back for
+   its buttons (fields have their own lit state). */
+.ob-root button:focus-visible {
+  outline: 2px solid rgb(var(--ink-hi) / 0.72);
+  outline-offset: 3px;
+}
+
+/* ---- The drum ----
+   The right of the window, clear of the column. A tile is sized by the window; the
+   drum's radius follows from twelve tiles and their gaps round each ring. */
+/* The light: the lit cover, blurred, behind the drum (a collection page's glow). Its layer,
+   with the grain that keeps the long fade from banding, spans the whole window. */
+.ob-light {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+.ob-light-art {
+  position: absolute;
+  top: 10%;
+  bottom: 10%;
+  left: calc(var(--ob-gutter) + 500px);
+  right: 4%;
+  background: center / cover no-repeat;
+  filter: blur(110px) saturate(1.3);
+  opacity: 0;
+  transition: opacity 1.6s var(--ob-ease);
+}
+.ob-light-art.is-on {
+  opacity: 0.5;
+}
+.ob-stage {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  left: calc(var(--ob-gutter) + 430px);
+  pointer-events: none;
+  z-index: 1;
+  --tile: clamp(108px, 11.5vw, 168px);
+  --gap: 14px;
+  --r: calc((var(--tile) + var(--gap)) * 1.9099);
+}
+/* Lit from the left, where the words are: covers darken as they turn away round the drum.
+   The drum turns in place, so one still shade over it does this for every cover at once. */
+.ob-stage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  /* Two bands on the drum's turning edges (the far one darkest), leaning with it; clear
+     across its lit front and outside it, so the page around it is never touched. */
+  background: linear-gradient(
+    84deg,
+    rgb(var(--base) / 0) calc(50% - var(--r) * 0.97),
+    rgb(var(--base) / 0.5) calc(50% - var(--r) * 0.8),
+    rgb(var(--base) / 0.08) calc(50% - var(--r) * 0.5),
+    rgb(var(--base) / 0) calc(50% - var(--r) * 0.25),
+    rgb(var(--base) / 0) calc(50% + var(--r) * 0.05),
+    rgb(var(--base) / 0.38) calc(50% + var(--r) * 0.48),
+    rgb(var(--base) / 0.88) calc(50% + var(--r) * 0.8),
+    rgb(var(--base) / 0) calc(50% + var(--r) * 0.99)
+  );
+}
+/* Top and foot melt into the dark across the whole window, so the drum comes out of it. */
+.ob-stage::after {
+  z-index: 1;
+  content: "";
+  position: absolute;
+  inset: 0 0 0 calc(-1 * (var(--ob-gutter) + 430px));
+  background: linear-gradient(to bottom, rgb(var(--base)) 0%, rgb(var(--base) / 0) 16%, rgb(var(--base) / 0) 70%, rgb(var(--base)) 100%);
+}
+.ob-stage-in {
+  position: absolute;
+  inset: 0;
+  perspective: 1800px;
+  animation: ob-drum-in 1.6s var(--ob-ease) 0.1s both;
+}
+@keyframes ob-drum-in {
+  from {
+    opacity: 0;
+    transform: scale(1.06);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.ob-drum {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--tile);
+  height: var(--tile);
+  margin: calc(var(--tile) / -2) 0 0 calc(var(--tile) / -2);
+  transform-style: preserve-3d;
+  transform: translateZ(calc(var(--r) * -1)) rotateX(var(--tx, 0deg)) rotateY(var(--ty, 0deg)) rotateX(7deg) rotateZ(-6deg);
+}
+.ob-drum-ring {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transform: translateY(calc(var(--row) * (var(--tile) + var(--gap)))) rotateY(var(--a));
+}
+.ob-tile {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  backface-visibility: hidden;
+  background: rgb(var(--panel));
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1);
+  transform: rotateY(calc(var(--i) * 30deg)) translateZ(calc(var(--r) + var(--lift, 0px)));
+  transition: transform 0.45s var(--ob-ease);
+  pointer-events: auto;
+  cursor: grab;
+}
+/* A cover fades in once it has loaded (CoverDrum adds .is-in), never popping in late. */
+.ob-tile-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.7s var(--ob-ease);
+}
+.ob-tile-art.is-in {
+  opacity: 1;
+}
+.ob-tile.is-lit {
+  --lift: 14px;
+}
+@media (hover: hover) {
+  .ob-tile:hover {
+    --lift: 30px;
+  }
+}
+.ob-drum.is-dragging .ob-tile {
+  cursor: grabbing;
+}
+
+/* Entrances: a step's parts settle into place in reading order; stepping back they
+   come down from above instead. Keyed by step, so every swap replays. */
+@keyframes ob-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes ob-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes ob-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.ob-screen > * > * {
+  animation: ob-rise 0.6s var(--ob-ease) both;
+  animation-delay: calc(var(--ob-base, 0ms) + var(--i, 0) * 55ms);
+}
+.ob-screen.ob-back > * > * {
+  animation-name: ob-drop;
+}
+.ob-screen > * > :nth-child(2) {
+  --i: 1;
+}
+.ob-screen > * > :nth-child(3) {
+  --i: 2;
+}
+.ob-screen > * > :nth-child(4) {
+  --i: 3;
+}
+.ob-screen > * > :nth-child(5) {
+  --i: 4;
+}
+.ob-screen > * > :nth-child(n + 6) {
+  --i: 5;
+}
+/* The headline brings its own (line masks); the ways in come one row at a time instead. */
+.ob-screen > * > .ob-hero,
+.ob-screen > * > .ob-ways {
+  animation: none;
+}
+.ob-ways > li {
+  animation: ob-rise 0.6s var(--ob-ease) both;
+  animation-delay: calc(var(--ob-base, 0ms) + 140ms + var(--k, 0) * 55ms);
+}
+.ob-ways > li:nth-child(2) {
+  --k: 1;
+}
+.ob-ways > li:nth-child(3) {
+  --k: 2;
+}
+.ob-ways > li:nth-child(4) {
+  --k: 3;
+}
+.ob-screen.ob-back .ob-ways > li {
+  animation-name: ob-drop;
+}
+/* An error appearing later just fades in where it is. */
+.ob-screen .ob-error {
+  animation: ob-fade 0.2s var(--ob-ease) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ob-brand,
+  .ob-screen > * > *,
+  .ob-ways > li,
+  .ob-line > span,
+  .ob-screen .ob-error,
+  .ob-stage-in {
+    animation: none;
+  }
+  .ob-tile,
+  .ob-tile-art,
+  .ob-light-art,
+  .ob-btn,
+  .ob-way,
+  .ob-way::before,
+  .ob-way-go {
+    transition: none;
+  }
+}
+html.reduce-motion .ob-brand,
+html.reduce-motion .ob-screen > * > *,
+html.reduce-motion .ob-ways > li,
+html.reduce-motion .ob-line > span,
+html.reduce-motion .ob-screen .ob-error,
+html.reduce-motion .ob-stage-in {
+  animation: none;
+}
+html.reduce-motion .ob-tile,
+html.reduce-motion .ob-tile-art,
+html.reduce-motion .ob-light-art,
+html.reduce-motion .ob-btn,
+html.reduce-motion .ob-way,
+html.reduce-motion .ob-way::before,
+html.reduce-motion .ob-way-go {
+  transition: none;
+}
+
+/* ---------- fullscreen (NowPlaying) cinematic transition ----------
+   One continuous move, staged by delay — artwork/background first, then
+   transport, metadata chrome, secondary rows. Transform + opacity only;
+   `both` fill so delayed elements hold their hidden state until their
+   cue instead of flashing in early. */
+@keyframes fs-enter {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.fs-enter {
+  animation: fs-enter 280ms var(--ease-enter) both;
+}
+.fs-d1 { animation-delay: 40ms; }
+
+/* Exit: the room settles back — quick fade with a whisper of contraction.
+   Applied to the overlay root while the OS leaves fullscreen underneath. */
+@keyframes fs-exit {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.992);
+  }
+}
+.fs-exiting {
+  animation: fs-exit 210ms var(--ease-exit) forwards;
+}
+
+/* ---------- fullscreen cinematic mode ----------
+   The album-art-driven backdrop crossfade, the hero artwork's breathing
+   pulse and the ambient visualizer. Transform + opacity only; the
+   reduce-motion rules at the end of this file flatten all of it. */
+
+/* Whole-layer crossfade between tracks: the previous song's atmosphere stays
+   mounted underneath while the new one fades in — no flash, no dip. */
+@keyframes fs-bg-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.fs-bg-in {
+  animation: fs-bg-in 1100ms ease-out both;
+}
+
+/* No loops in this room. The cover's "breathing" scale, the backdrop's drift and the 32-bar
+   decorative visualizer each ran forever, and WebKitGTK repaints and recomposites the full-screen
+   window for every frame of any running animation: together they held this view at ~3 fps with
+   the controls up and a full CPU core while a song played. The room now moves only when something
+   happens: a song change, a lyric line, the controls coming and going. */
+
+/* ---------- fullscreen idle ----------
+   YouTube's rule (NowPlaying + useIdle): while music plays and the pointer rests, the controls
+   fade and the cursor goes; a move brings them back. Opacity and transform only: nothing changes
+   size, so no frame of it lays the room out again (the old version animated heights and the
+   cover's width, re-measuring the lyrics on every frame). The header, the switch and the like
+   pill fade where they are; the play bar also slides off the bottom edge, and the room drifts
+   down a little into the space it leaves.
+   A transition is taken from the state it ends in: the base rules carry the quick wake (the bar
+   is there by the time a click lands), the .fs-idle rules the slower settle. */
+html.np-open .shell-under {
+  visibility: hidden;
+}
+.fs-chrome {
+  transition:
+    opacity 200ms ease-out,
+    transform 260ms var(--ease-enter);
+}
+.fs-art {
+  width: min(38vh, 32vw, 480px);
+}
+.fs-body {
+  transition: transform 260ms var(--ease-enter);
+}
+.fs-idle {
+  cursor: none;
+}
+/* Over everything while idle: nothing under the hidden cursor stays hovered
+   (no lit button, no stray tooltip), and the first click only wakes. */
+.fs-idle::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+}
+.fs-idle .fs-chrome {
+  opacity: 0;
+  transition:
+    opacity 320ms ease,
+    transform 420ms cubic-bezier(0.45, 0, 0.2, 1);
+}
+.fs-idle .fs-dock {
+  transform: translateY(24px);
+}
+.fs-idle .fs-body {
+  transform: translateY(16px);
+  transition: transform 420ms cubic-bezier(0.45, 0, 0.2, 1);
+}
+
+/* ---------- trackpad swipe arrow ----------
+   Chrome's history arrow (SwipeArrow, lib/swipeNav): out of the panel's edge
+   in step with a two-finger swipe, white with a pop and a ripple once the
+   swipe is past the line, then on inwards with a fade as the step is taken,
+   or back out of sight. The slide is eased frame by frame in JS; these rules
+   carry the colours, the pop, the ripple and the fade. */
+.swipe-arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 40;
+  width: 42px;
+  height: 42px;
+  margin-top: -21px;
+  pointer-events: none;
+  visibility: hidden;
+  opacity: 0;
+  will-change: transform, opacity;
+}
+.swipe-arrow.is-on {
+  visibility: visible;
+}
+.swipe-arrow[data-dir="back"] {
+  left: 0;
+}
+.swipe-arrow[data-dir="forward"] {
+  right: 0;
+}
+.swipe-arrow__bubble {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 9999px;
+  background: rgb(30 30 36 / 0.94);
+  color: rgb(255 255 255 / 0.92);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.12),
+    0 10px 28px -8px rgb(0 0 0 / 0.75);
+  transition:
+    background-color 180ms ease-out,
+    color 180ms ease-out,
+    box-shadow 220ms ease-out;
+}
+.swipe-arrow__icon {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2.4;
+  transition: transform 220ms var(--ease-enter);
+}
+.swipe-arrow__icon--forward,
+.swipe-arrow[data-dir="forward"] .swipe-arrow__icon--back {
+  display: none;
+}
+.swipe-arrow[data-dir="forward"] .swipe-arrow__icon--forward {
+  display: block;
+}
+.swipe-arrow__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: rgb(255 255 255 / 0.3);
+  opacity: 0;
+}
+.swipe-arrow.is-armed .swipe-arrow__bubble {
+  background: #fff;
+  color: #0b0b0f;
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.9),
+    0 12px 30px -8px rgb(0 0 0 / 0.75),
+    0 0 22px rgb(255 255 255 / 0.22);
+  animation: swipe-arrow-pop 360ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.swipe-arrow.is-armed[data-dir="back"] .swipe-arrow__icon {
+  transform: translateX(-2px);
+}
+.swipe-arrow.is-armed[data-dir="forward"] .swipe-arrow__icon {
+  transform: translateX(2px);
+}
+.swipe-arrow.is-armed .swipe-arrow__ring {
+  animation: swipe-arrow-ripple 620ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.swipe-arrow.is-go .swipe-arrow__bubble {
+  animation: swipe-arrow-go 320ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+@keyframes swipe-arrow-pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.16);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes swipe-arrow-ripple {
+  0% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.4);
+  }
+}
+@keyframes swipe-arrow-go {
+  to {
+    opacity: 0;
+    transform: scale(1.2);
+  }
+}
+
+/* ---------- reduced motion ----------
+   Mirrors the in-app "Reduce animation" kill-switch for the OS-level
+   preference, so users who request reduced motion system-wide get it
+   without having to find the in-app toggle. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---------- macOS typography ---------- */
+/* Windows keeps the Segoe stack from the Tailwind config; on macOS the SF
+   family leads. These rules run after Tailwind's utilities in the cascade
+   and out-specify them, so every font-sans / font-display element follows. */
+html.platform-mac .font-sans {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+}
+html.platform-mac .font-display {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", system-ui, sans-serif;
+}
+html.platform-mac body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+}
+html.platform-mac .ob-headline {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", system-ui, sans-serif;
+}
+
+/* ---------- Home: side cards ----------
+   A record label peeking from the cover collage's corner names the side —
+   static: the crate is Home's one moving piece. */
+.side-disc {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: repeating-radial-gradient(circle, #111113 0 1.2px, #1d1d20 1.2px 2.4px);
+  box-shadow: 0 6px 16px rgb(0 0 0 / 0.55), inset 0 0 0 1px rgb(255 255 255 / 0.08);
+}
+.side-disc-label {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+  color: rgb(0 0 0 / 0.82);
+}
+
+/* ---------- Explore cards ----------
+   A category's card: a deep, dark take on its own colour, lit from the top
+   left, with its first playlist cover as a record sleeve and the record
+   sliding out of it. The Podcasts card fans its shows out instead. */
+.xc-card {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  isolation: isolate;
+  border-radius: 16px;
+  text-align: left;
+  aspect-ratio: 16 / 10;
+  background:
+    radial-gradient(110% 95% at 0% 0%, color-mix(in oklab, var(--xc) 72%, transparent) 0%, transparent 64%),
+    linear-gradient(155deg, color-mix(in oklab, var(--xc) 48%, #08080a) 0%, color-mix(in oklab, var(--xc) 16%, #08080a) 100%);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.06);
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
+}
+.xc-card:hover {
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.12), 0 14px 34px -12px color-mix(in oklab, var(--xc) 55%, transparent);
+}
+.xc-card:active {
+  transform: scale(0.985);
+}
+.xc-card:focus-visible {
+  outline: 2px solid rgb(var(--accent));
+  outline-offset: 2px;
+}
+.xc-title {
+  position: absolute;
+  z-index: 1;
+  left: 18px;
+  top: 16px;
+  max-width: 46%;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: #fff;
+  text-shadow: 0 1px 10px rgb(0 0 0 / 0.35);
+}
+.xc-art {
+  position: absolute;
+  right: 6%;
+  bottom: -15%;
+  width: 45%;
+  aspect-ratio: 1;
+  animation: xc-in 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes xc-in {
+  from {
+    opacity: 0;
+    transform: translate(10%, 8%);
+  }
+}
+.xc-disc {
+  position: absolute;
+  inset: 5%;
+  border-radius: 50%;
+  background:
+    conic-gradient(from 200deg, rgb(255 255 255 / 0.16), rgb(255 255 255 / 0) 16%, rgb(255 255 255 / 0) 48%, rgb(255 255 255 / 0.1) 64%, rgb(255 255 255 / 0) 82%),
+    repeating-radial-gradient(circle, color-mix(in oklab, var(--xc) 10%, #0e0e10) 0 1.4px, color-mix(in oklab, var(--xc) 22%, #19191c) 1.4px 2.8px);
+  box-shadow: 0 10px 26px rgb(0 0 0 / 0.55), inset 0 0 0 1px rgb(255 255 255 / 0.09), inset 0 0 0 6px rgb(0 0 0 / 0.25);
+  transform: translateX(-48%);
+  transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.xc-label {
+  position: absolute;
+  inset: 32%;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: 0 0 0 2px rgb(0 0 0 / 0.45);
+}
+.xc-label img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.xc-label::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 9%;
+  height: 9%;
+  border-radius: 50%;
+  background: #050505;
+  transform: translate(-50%, -50%);
+}
+.xc-sleeve {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 7px;
+  box-shadow: 0 14px 30px rgb(0 0 0 / 0.55), 0 0 0 1px rgb(255 255 255 / 0.1);
+  transform: rotate(7deg);
+  transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.xc-card:hover .xc-disc {
+  transform: translateX(-66%) rotate(80deg);
+}
+.xc-card:hover .xc-sleeve {
+  transform: rotate(3deg) translateY(-3%);
+}
+.xc-banner {
+  aspect-ratio: auto;
+  width: 100%;
+  height: 150px;
+}
+.xc-banner-text {
+  position: absolute;
+  left: 22px;
+  top: 50%;
+  max-width: 55%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transform: translateY(-50%);
+}
+.xc-banner .xc-title {
+  position: static;
+  max-width: none;
+  font-size: 28px;
+}
+.xc-sub {
+  font-size: 14px;
+  color: rgb(255 255 255 / 0.72);
+}
+.xc-fan {
+  position: absolute;
+  right: 7%;
+  top: 16px;
+  width: 136px;
+  height: 136px;
+  animation: xc-in 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.xc-show {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 10px;
+  box-shadow: 0 12px 26px rgb(0 0 0 / 0.5), 0 0 0 1px rgb(255 255 255 / 0.1);
+  transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.xc-show-0 {
+  transform: translateX(-78%) rotate(-12deg) scale(0.84);
+}
+.xc-show-1 {
+  transform: translateX(-40%) rotate(-4deg) scale(0.92);
+}
+.xc-show-2 {
+  transform: rotate(5deg);
+}
+.xc-card:hover .xc-show-0 {
+  transform: translateX(-96%) rotate(-16deg) scale(0.84);
+}
+.xc-card:hover .xc-show-1 {
+  transform: translateX(-50%) rotate(-6deg) scale(0.92);
+}
+
+/* ---------- A category's page (MoodView) ----------
+   A turntable header in the category's colour, the mix's first songs, a
+   crate of its playlists to flip through, and a wall of album records. */
+.tt {
+  position: relative;
+  height: 300px;
+  border-radius: 22px;
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    radial-gradient(90% 120% at 0% 0%, color-mix(in oklab, var(--xc) 70%, transparent), transparent 62%),
+    linear-gradient(150deg, color-mix(in oklab, var(--xc) 46%, #08080a), color-mix(in oklab, var(--xc) 10%, #08080a));
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.06);
+}
+.tt-text {
+  position: absolute;
+  z-index: 2;
+  left: 32px;
+  top: 50%;
+  max-width: 52%;
+  transform: translateY(-50%);
+}
+.tt-eyebrow {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgb(255 255 255 / 0.7);
+}
+.tt-title {
+  margin: 4px 0 6px;
+  font-size: 60px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: #fff;
+}
+.tt-meta {
+  min-height: 20px;
+  margin: 0 0 16px;
+  font-size: 14px;
+  color: rgb(255 255 255 / 0.72);
+}
+.tt-deck {
+  position: absolute;
+  right: -40px;
+  top: 50%;
+  width: 400px;
+  height: 400px;
+  transform: translateY(-50%);
+}
+.tt-record {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    conic-gradient(from 200deg, rgb(255 255 255 / 0.16), rgb(255 255 255 / 0) 14%, rgb(255 255 255 / 0) 48%, rgb(255 255 255 / 0.1) 62%, rgb(255 255 255 / 0) 80%),
+    repeating-radial-gradient(circle, color-mix(in oklab, var(--xc) 10%, #0e0e10) 0 1.6px, color-mix(in oklab, var(--xc) 20%, #19191c) 1.6px 3.2px);
+  box-shadow: 0 30px 60px rgb(0 0 0 / 0.6), inset 0 0 0 1px rgb(255 255 255 / 0.08), inset 0 0 0 12px rgb(0 0 0 / 0.25);
+  animation: tt-spin 7s linear infinite;
+  animation-play-state: paused;
+}
+.tt-deck.is-spinning .tt-record {
+  animation-play-state: running;
+}
+@keyframes tt-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.tt-label {
+  position: absolute;
+  inset: 33%;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: 0 0 0 3px rgb(0 0 0 / 0.4);
+}
+.tt-label img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.tt-label::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 8%;
+  height: 8%;
+  border-radius: 50%;
+  background: #050505;
+  transform: translate(-50%, -50%);
+}
+/* The tonearm rests off the record, and swings onto it while the mix plays. */
+.tt-arm {
+  position: absolute;
+  z-index: 2;
+  right: 70px;
+  top: -6px;
+  width: 30px;
+  height: 230px;
+  transform-origin: 15px 15px;
+  transform: rotate(-18deg);
+  transition: transform 0.9s cubic-bezier(0.3, 0.7, 0.2, 1);
+}
+.tt-deck.is-spinning .tt-arm {
+  transform: rotate(6deg);
+}
+.tt-pivot {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #f2f2f2, #8d8d92 60%, #4b4b50);
+  box-shadow: 0 6px 14px rgb(0 0 0 / 0.5);
+}
+.tt-rod {
+  position: absolute;
+  left: 13px;
+  top: 15px;
+  width: 4px;
+  height: 190px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #d8d8dc, #8e8e94);
+  box-shadow: 2px 4px 8px rgb(0 0 0 / 0.4);
+}
+.tt-head {
+  position: absolute;
+  left: 7px;
+  top: 198px;
+  width: 16px;
+  height: 30px;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #e9e9ec, #9a9aa0);
+  box-shadow: 0 6px 12px rgb(0 0 0 / 0.45);
+  transform: rotate(-18deg);
+}
+/* Up first: numbered down two columns, as a tracklist reads. */
+.uf {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(5, auto);
+  grid-auto-flow: column;
+  column-gap: 28px;
+}
+.uf-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 28px 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  height: 60px;
+  padding: 0 10px;
+  border-radius: 10px;
+  text-align: left;
+  transition: background-color 0.15s ease;
+}
+.uf-row:hover,
+.uf-row:focus-visible {
+  background: rgb(var(--ink-hi) / 0.06);
+  outline: none;
+}
+.uf-n {
+  display: grid;
+  justify-items: end;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.uf-art {
+  width: 44px;
+  height: 44px;
+  border-radius: 6px;
+}
+.uf-t {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.uf-d {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+/* The crate (Crate.tsx): sleeves leaning back in a row; the lifted one springs
+   up and parts the rest. Only transforms move — the parting slides the later
+   sleeves over rather than re-laying out the row — so flipping through
+   hundreds of sleeves stays smooth. Every pose spells out the same transform
+   list, so each change interpolates piece by piece (no var() in it: a
+   transition over var() re-resolves the sleeve's whole style every frame).
+   Sleeves already flipped past lean further back; the next one opens toward
+   the lifted one. */
+.crate-sleeve {
+  position: relative;
+  z-index: 0;
+  flex: none;
+  width: 196px;
+  height: 196px;
+  margin-top: 38px;
+  border-radius: 6px;
+  overflow: hidden;
+  transform: translate(0px, 0px) perspective(1400px) rotateY(38deg) scale(1);
+  transform-origin: left center;
+  box-shadow: -22px 0 34px -6px rgb(0 0 0 / 0.7), 0 0 0 1px rgb(255 255 255 / 0.08);
+  /* A sleeve settling back keeps its place on top until it's nearly down. */
+  transition:
+    transform 0.6s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.5s ease,
+    z-index 0s linear 0.3s;
+  /* Dealt into the row on first show, the first dozen one after another (Crate.tsx sets each delay). */
+  animation: crate-deal 0.7s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+.crate-sleeve + .crate-sleeve {
+  margin-left: -144px;
+}
+.crate-sleeve.is-before {
+  transform: translate(0px, 0px) perspective(1400px) rotateY(46deg) scale(1);
+}
+.crate-sleeve.is-after {
+  transform: translate(150px, 0px) perspective(1400px) rotateY(38deg) scale(1);
+}
+.crate-sleeve.is-after.is-next {
+  transform: translate(150px, 0px) perspective(1400px) rotateY(28deg) scale(1);
+}
+.crate-sleeve.is-lifted {
+  transform: translate(0px, -26px) perspective(1400px) rotateY(0deg) scale(1.04);
+  z-index: 5;
+  box-shadow: 0 30px 46px -16px rgb(0 0 0 / 0.8), 0 0 0 1px rgb(255 255 255 / 0.14);
+  /* A touch of spring on the way up. */
+  transition:
+    transform 0.62s cubic-bezier(0.34, 1.45, 0.64, 1),
+    box-shadow 0.5s ease,
+    z-index 0s;
+}
+.crate-sleeve img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* A glint runs across a sleeve as it comes up. */
+.crate-sleeve::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(110deg, transparent 32%, rgb(255 255 255 / 0.22) 48%, transparent 64%);
+  transform: translateX(-110%);
+}
+.crate-sleeve.is-lifted::after {
+  animation: crate-glint 0.95s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both;
+}
+.crate-sleeve:focus-visible {
+  outline: 2px solid rgb(var(--accent));
+  outline-offset: 3px;
+}
+/* Reduced motion: no dealing in (the per-sleeve delays would still pop them in one by one). */
+html.reduce-motion .crate-sleeve {
+  animation: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .crate-sleeve {
+    animation: none !important;
+  }
+}
+/* The parting (150px) less the row's gap: the row's scroll width stays put whichever sleeve is up. */
+.crate-end {
+  flex: none;
+  width: 134px;
+}
+.crate-caption {
+  min-height: 42px;
+  margin-top: 2px;
+  display: flex;
+  flex-direction: column;
+  animation: crate-caption 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes crate-deal {
+  from {
+    opacity: 0;
+    translate: 90px 0;
+  }
+}
+@keyframes crate-glint {
+  to {
+    transform: translateX(110%);
+  }
+}
+@keyframes crate-caption {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+/* The record wall: each album's sleeve with its record peeking out; a hover draws it out. */
+.rw {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: 28px 22px;
+}
+.rw-item {
+  display: block;
+  min-width: 0;
+  text-align: left;
+}
+.rw-art {
+  position: relative;
+  display: block;
+  width: 82%;
+  aspect-ratio: 1;
+}
+.rw-disc {
+  position: absolute;
+  inset: 3%;
+  border-radius: 50%;
+  background:
+    conic-gradient(from 200deg, rgb(255 255 255 / 0.14), rgb(255 255 255 / 0) 15%, rgb(255 255 255 / 0) 50%, rgb(255 255 255 / 0.08) 66%, rgb(255 255 255 / 0) 84%),
+    repeating-radial-gradient(circle, #101012 0 1.3px, #1b1b1e 1.3px 2.6px);
+  box-shadow: 0 10px 22px rgb(0 0 0 / 0.5), inset 0 0 0 1px rgb(255 255 255 / 0.07);
+  transform: translateX(22%);
+  transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.rw-label {
+  position: absolute;
+  inset: 34%;
+  border-radius: 50%;
+  overflow: hidden;
+}
+.rw-label img,
+.rw-sleeve {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.rw-sleeve {
+  position: absolute;
+  inset: 0;
+  border-radius: 5px;
+  box-shadow: 0 12px 26px rgb(0 0 0 / 0.55), 0 0 0 1px rgb(255 255 255 / 0.08);
+}
+.rw-item:hover .rw-disc,
+.rw-item:focus-visible .rw-disc {
+  transform: translateX(34%) rotate(70deg);
+}
+.rw-item:focus-visible {
+  outline: none;
+}
+.rw-item:focus-visible .rw-sleeve {
+  outline: 2px solid rgb(var(--accent));
+  outline-offset: 3px;
+}
+
+/* ---------- Replay ----------
+   Your listening, pressed on wax: a hero washed in your top song's own
+   cover, with that song's record sliding out of your top album's sleeve —
+   it spins while your Replay plays — then liner notes, meters, your day's
+   curve and a listening waveform. Every motion runs once on arrival; Reduce
+   animation stills them all. --rp-a / --rp-b are "R G B" read off the cover. */
+/* The page and the hero size their insides to their own width, not the window's:
+   the main column narrows when the sidebar and the right rail are open. */
+.rp-page {
+  container-type: inline-size;
+}
+.rp-hero {
+  --rp-a: 60 60 64;
+  --rp-b: 40 40 44;
+  container-type: inline-size;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  isolation: isolate;
+  min-height: 320px;
+  /* Sides only: the main row and the streak band each pad their own height. */
+  padding: 0 40px;
+  border-radius: 26px;
+  /* Under the wash — and all there is when the top song has no cover. */
+  background: radial-gradient(120% 130% at 100% 0%, rgb(var(--rp-a) / 0.55), transparent 65%), #0e0e11;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.07);
+}
+/* The glow: the top song's cover, blurred into light around the record (it
+   sits in .rp-art, so it follows the record at every width; z -2 keeps it
+   under the hero's shade). Its real colours at full strength read as light;
+   a tint of them on black would go muddy (warm covers turn brown), so the
+   words keep a clean dark side. */
+.rp-wash {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: -2;
+  width: 170%;
+  height: 170%;
+  max-width: none;
+  object-fit: cover;
+  opacity: 0.85;
+  transform: translate(-50%, -50%);
+  /* Lifted a little, so even a dark cover makes a lit core rather than a dim smudge. */
+  filter: blur(64px) saturate(1.7) brightness(1.25);
+  pointer-events: none;
+  animation: rp-glow-in 1s ease-out both;
+}
+@keyframes rp-glow-in {
+  from {
+    opacity: 0;
+  }
+}
+/* The dark side for the words, and a fine grain so the glow reads as print. */
+.rp-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E") repeat,
+    linear-gradient(90deg, rgb(12 12 14 / 0.88), rgb(12 12 14 / 0.55) 42%, rgb(12 12 14 / 0) 72%);
+}
+.rp-hero-main {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 32px;
+  padding: 36px 0 32px;
+}
+.rp-words {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 520px;
+}
+/* Replay's hover tips (timeline nodes, calendar days): above the item; near
+   an edge (data-side) they open inwards, clear of the card's rim. */
+.rp-tip {
+  position: relative;
+}
+.rp-tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  z-index: 5;
+  padding: 5px 9px;
+  border-radius: 8px;
+  background: #f4f4f5;
+  color: #111;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
+  box-shadow: 0 10px 24px rgb(0 0 0 / 0.45);
+  opacity: 0;
+  transform: translate(-50%, 4px);
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
+  pointer-events: none;
+}
+.rp-tip[data-side="start"]::after {
+  left: 0;
+  transform: translate(0, 4px);
+}
+.rp-tip[data-side="end"]::after {
+  left: auto;
+  right: 0;
+  transform: translate(0, 4px);
+}
+.rp-tip:is(:hover, :focus-within)::after {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+.rp-tip[data-side]:is(:hover, :focus-within)::after {
+  transform: none;
+}
+.rp-eyebrow {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: rgb(255 255 255 / 0.72);
+}
+.rp-minutes {
+  margin-top: 18px;
+  font-size: clamp(60px, 9cqw, 96px);
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.045em;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+/* Sleeve and record scale together with the hero. */
+.rp-art {
+  position: relative;
+  flex: none;
+  width: clamp(260px, 42cqw, 430px);
+  aspect-ratio: 43 / 28;
+}
+.rp-sleeve {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 2;
+  width: 65.1%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 10px;
+  box-shadow: 0 26px 54px rgb(0 0 0 / 0.55), 0 0 0 1px rgb(255 255 255 / 0.1);
+  transform: rotate(-4deg);
+  animation: rp-sleeve-in 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.rp-sleeve img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* The record slides out of the sleeve, turning, every time a period opens. */
+.rp-record {
+  position: absolute;
+  left: 32.6%;
+  top: 0;
+  z-index: 1;
+  width: 65.1%;
+  aspect-ratio: 1;
+  animation: rp-record-out 1.2s cubic-bezier(0.2, 0.8, 0.2, 1) 0.15s both;
+}
+/* With no sleeve to come out of, the record turns into place. */
+.rp-art.is-alone .rp-record {
+  left: 17.4%;
+  animation-name: rp-record-in;
+}
+@keyframes rp-record-in {
+  from {
+    opacity: 0;
+    transform: rotate(-120deg) scale(0.9);
+  }
+}
+/* Narrower: the record alone, whole, beside the words. (After the rules
+   above, so it wins over the sleeve layout.) */
+@container (max-width: 660px) {
+  .rp-art {
+    width: clamp(160px, 36cqw, 236px);
+    aspect-ratio: 1;
+  }
+  .rp-sleeve {
+    display: none;
+  }
+  .rp-art .rp-record,
+  .rp-art.is-alone .rp-record {
+    left: 0;
+    width: 100%;
+    animation-name: rp-record-in;
+  }
+}
+/* No room for both: the words keep the hero. */
+@container (max-width: 400px) {
+  .rp-art {
+    display: none;
+  }
+}
+@keyframes rp-sleeve-in {
+  from {
+    opacity: 0;
+    transform: rotate(-9deg) translateY(14px);
+  }
+}
+@keyframes rp-record-out {
+  from {
+    transform: translateX(-50%) rotate(-150deg);
+  }
+}
+.rp-disc {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    conic-gradient(from 200deg, rgb(255 255 255 / 0.17), rgb(255 255 255 / 0) 14%, rgb(255 255 255 / 0) 48%, rgb(255 255 255 / 0.1) 62%, rgb(255 255 255 / 0) 80%),
+    repeating-radial-gradient(circle, color-mix(in oklab, rgb(var(--rp-a)) 8%, #0e0e10) 0 1.5px, color-mix(in oklab, rgb(var(--rp-a)) 16%, #19191c) 1.5px 3px);
+  box-shadow: 0 26px 54px rgb(0 0 0 / 0.55), inset 0 0 0 1px rgb(255 255 255 / 0.08), inset 0 0 0 10px rgb(0 0 0 / 0.25);
+  animation: tt-spin 6s linear infinite;
+  animation-play-state: paused;
+}
+.rp-art.is-spinning .rp-disc {
+  animation-play-state: running;
+}
+.rp-label {
+  position: absolute;
+  inset: 33%;
+  overflow: hidden;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px rgb(0 0 0 / 0.4);
+}
+.rp-label img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.rp-label::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 9%;
+  height: 9%;
+  border-radius: 50%;
+  background: #050505;
+  transform: translate(-50%, -50%);
+}
+/* Period switch: the white thumb slides to the chosen period. */
+.rp-seg {
+  position: relative;
+  display: inline-flex;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgb(var(--ink-hi) / 0.06);
+}
+.rp-seg button {
+  position: relative;
+  z-index: 1;
+  height: 34px;
+  padding: 0 16px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: color 0.25s ease;
+}
+.rp-seg-thumb {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 0;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 6px 16px rgb(0 0 0 / 0.3);
+  transition: transform 0.38s cubic-bezier(0.2, 0.8, 0.2, 1), width 0.38s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+/* Liner notes: two cards side by side, each in its own colours. */
+.rp-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.rp-cards > :only-child {
+  grid-column: 1 / -1;
+}
+@container (max-width: 560px) {
+  .rp-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+/* Top songs: two columns once the page is wide enough for them. */
+.rp-songs {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  column-gap: 32px;
+  row-gap: 4px;
+}
+@container (min-width: 960px) {
+  .rp-songs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+/* Top artists and Top albums fill whole rows at every width — never a hole at the end. */
+.rp-artists {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 26px 20px;
+}
+.rp-artists > li {
+  display: flex;
+  justify-content: center;
+}
+/* Up to eight albums come in; how many show depends on the columns: six in
+   three (or two) across, eight in four, six in a single row of six. */
+.rw.rp-albums {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.rw.rp-albums > :nth-child(n + 7) {
+  display: none;
+}
+@container (max-width: 520px) {
+  .rp-artists,
+  .rw.rp-albums {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@container (min-width: 760px) and (max-width: 1099px) {
+  .rw.rp-albums {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .rw.rp-albums > :nth-child(n + 7) {
+    display: block;
+  }
+}
+@container (min-width: 1100px) {
+  .rp-artists {
+    grid-template-columns: repeat(var(--n), minmax(0, 1fr));
+  }
+  .rw.rp-albums {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+.rp-card {
+  --c: 70 70 76;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 200px;
+  overflow: hidden;
+  padding: 22px 24px;
+  border-radius: 20px;
+  text-align: left;
+  background: linear-gradient(155deg, rgb(var(--c) / 0.55), rgb(var(--c) / 0.1) 72%), #121214;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.06);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+/* The top artist's card: dark, with their photo glowing behind the portrait (see .rp-wash). */
+.rp-card.rp-card-photo {
+  isolation: isolate;
+  background: #141416;
+}
+.rp-card-glow {
+  position: absolute;
+  left: -14%;
+  bottom: -46%;
+  z-index: -1;
+  width: 78%;
+  aspect-ratio: 1;
+  max-width: none;
+  object-fit: cover;
+  opacity: 0.7;
+  filter: blur(46px) saturate(1.6);
+  pointer-events: none;
+  animation: rp-glow-in 1s ease-out both;
+}
+.rp-card:hover {
+  transform: translateY(-2px);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1), 0 20px 44px -20px rgb(var(--c) / 0.7);
+}
+.rp-card:focus-visible {
+  outline: 2px solid rgb(var(--accent));
+  outline-offset: 2px;
+}
+/* Your day's curve: it sweeps in from midnight, then your hour is pinned on it. */
+.rp-curve {
+  position: relative;
+  height: 64px;
+}
+.rp-curve svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  animation: rp-sweep 1.1s cubic-bezier(0.2, 0.8, 0.2, 1) 0.25s both;
+}
+@keyframes rp-sweep {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+.rp-curve-drop {
+  position: absolute;
+  bottom: 0;
+  margin-left: -0.75px;
+  border-left: 1.5px dashed rgb(255 255 255 / 0.4);
+  animation: fade-in 0.4s ease-out 1.1s both;
+}
+.rp-curve-pin {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgb(var(--c) / 0.6), 0 0 16px rgb(255 255 255 / 0.55);
+  animation: rp-pin 0.45s cubic-bezier(0.34, 1.45, 0.64, 1) 1.1s both;
+}
+@keyframes rp-pin {
+  from {
+    transform: scale(0);
+  }
+}
+/* Top songs: how much of your listening each took, filling in once. */
+.rp-meter {
+  height: 3px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: rgb(255 255 255 / 0.08);
+}
+.rp-meter > i {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, rgb(var(--rp-b) / 1), rgb(var(--rp-a) / 1));
+  filter: brightness(1.6) saturate(1.2);
+  transform-origin: left;
+  animation: rp-meter 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes rp-meter {
+  from {
+    transform: scaleX(0);
+  }
+}
+/* Your listening: the counts in one card, each over a pile of its own art. */
+.rp-counts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-radius: 20px;
+  background: #141416;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.05);
+}
+.rp-count {
+  min-width: 0;
+  padding: 22px 24px 20px;
+}
+.rp-count + .rp-count {
+  border-left: 1px solid rgb(255 255 255 / 0.06);
+}
+@container (max-width: 520px) {
+  .rp-counts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .rp-count + .rp-count {
+    border-left: 0;
+    border-top: 1px solid rgb(255 255 255 / 0.06);
+  }
+}
+.rp-pile {
+  display: flex;
+  padding-left: 9px;
+}
+.rp-pile-item {
+  width: 34px;
+  height: 34px;
+  margin-left: -9px;
+  box-shadow: 0 0 0 2.5px #141416;
+  animation: rp-pile-in 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.rp-pile-item:nth-child(2) {
+  animation-delay: 60ms;
+}
+.rp-pile-item:nth-child(3) {
+  animation-delay: 120ms;
+}
+.rp-pile-item:nth-child(4) {
+  animation-delay: 180ms;
+}
+.rp-pile-item:nth-child(5) {
+  animation-delay: 240ms;
+}
+@keyframes rp-pile-in {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+}
+/* Its days as a calendar: brighter where you listened more, your biggest day
+   ringed in amber, today outlined, the days still to come left open. */
+.rp-days {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px 36px;
+  margin-top: 16px;
+  padding: 24px;
+  border-radius: 20px;
+  background: #141416;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.05);
+}
+.rp-days.is-wide {
+  flex-direction: column;
+  align-items: stretch;
+}
+.rp-days-text {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+.rp-legend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 10px;
+  font-size: 11px;
+  color: rgb(var(--ink-faint) / 0.55);
+}
+.rp-legend > i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+.rp-legend > i:first-of-type {
+  margin-left: 4px;
+}
+.rp-legend > i:last-of-type {
+  margin-right: 4px;
+}
+.rp-lv0 {
+  background: rgb(255 255 255 / 0.05);
+  color: rgb(255 255 255 / 0.45);
+}
+.rp-lv1 {
+  background: rgb(255 255 255 / 0.16);
+  color: rgb(255 255 255 / 0.85);
+}
+.rp-lv2 {
+  background: rgb(255 255 255 / 0.32);
+  color: #fff;
+}
+.rp-lv3 {
+  background: rgb(255 255 255 / 0.6);
+  color: #101012;
+}
+.rp-lv4 {
+  background: rgb(255 255 255 / 0.92);
+  color: #101012;
+}
+.rp-lvx {
+  background: transparent;
+  color: rgb(255 255 255 / 0.22);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.06);
+}
+.rp-cal-wrap {
+  display: grid;
+  gap: 10px;
+}
+.rp-cal-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.rp-cal-nav > span {
+  font-size: 14px;
+  font-weight: 700;
+  color: rgb(var(--ink-hi));
+}
+.rp-cal-nav > button {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  color: rgb(var(--ink-hi) / 0.75);
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+.rp-cal-nav > button:hover:not(:disabled) {
+  background: rgb(var(--ink-hi) / 0.08);
+  color: rgb(var(--ink-hi));
+}
+.rp-cal-nav > button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.rp-cal-nav > button:focus-visible {
+  outline: 2px solid rgb(var(--accent));
+}
+.rp-cal {
+  display: grid;
+  grid-template-columns: repeat(7, 34px);
+  gap: 6px;
+}
+.rp-cal-head {
+  padding-bottom: 2px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: rgb(var(--ink-faint) / 0.55);
+}
+.rp-cal-day {
+  display: grid;
+  place-items: center;
+  height: 34px;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  animation: rp-cal-in 0.4s ease-out both;
+  animation-delay: calc(var(--i) * 12ms);
+}
+.rp-cal-day.is-best {
+  box-shadow: 0 0 0 2px #141416, 0 0 0 3.5px #ffb547;
+}
+.rp-yr {
+  width: 100%;
+}
+.rp-yr-months,
+.rp-yr-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--weeks), minmax(0, 1fr));
+  column-gap: 3px;
+}
+.rp-yr-months {
+  margin-bottom: 6px;
+  font-size: 11px;
+  color: rgb(var(--ink-faint) / 0.55);
+}
+.rp-yr-months > span {
+  white-space: nowrap;
+}
+.rp-yr-grid {
+  grid-template-rows: repeat(7, auto);
+  row-gap: 3px;
+}
+.rp-yr-day {
+  aspect-ratio: 1;
+  border-radius: 3px;
+  animation: rp-cal-in 0.4s ease-out both;
+  animation-delay: calc(var(--i) * 14ms);
+}
+.rp-yr-day.is-best {
+  box-shadow: 0 0 0 1.5px #ffb547;
+}
+@keyframes rp-cal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+/* Share sheet. */
+.rp-share-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  display: grid;
+  place-items: center;
+  background: rgb(0 0 0 / 0.68);
+  animation: fade-in 0.2s ease-out both;
+}
+.rp-share {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 30px;
+  width: min(760px, calc(100vw - 48px));
+  padding: 26px;
+  border-radius: 24px;
+  background: #141416;
+  box-shadow: 0 30px 80px rgb(0 0 0 / 0.6), inset 0 0 0 1px rgb(255 255 255 / 0.07);
+  animation: rp-pop 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes rp-pop {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+}
+.rp-share-preview {
+  width: 300px;
+  aspect-ratio: 9 / 16;
+  overflow: hidden;
+  border-radius: 18px;
+  background: #0b0b0d;
+  box-shadow: 0 18px 40px rgb(0 0 0 / 0.5), 0 0 0 1px rgb(255 255 255 / 0.06);
+}
+.rp-share-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  animation: fade-in 0.4s ease-out both;
+}
+
+/* ---------- FitText ----------
+   Text that never ends in "…" (components/FitText). One line fades at its far
+   edge when it doesn't fit and slides to show the rest — on its own for what's
+   playing (driven from the component), or while its row or card (.fit-host)
+   is hovered; two lines fade the end of the second line. Reduce animation
+   stills the slides; the tooltip still holds the whole text. */
+@property --fit-fade {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+.fit-text {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+/* A hover underline set on a wrapper still reaches the words (an inline-block blocks it otherwise). */
+.fit-text,
+.fit-in {
+  text-decoration: inherit;
+}
+.fit-in {
+  display: inline-block;
+  transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.fit-text[data-over] {
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 var(--fit-fade), #000 calc(100% - 24px), transparent);
+  mask-image: linear-gradient(90deg, transparent 0, #000 var(--fit-fade), #000 calc(100% - 24px), transparent);
+  transition:
+    --fit-fade 0.3s ease,
+    color 0.15s ease;
+}
+:is(.fit-host:hover, .fit-host:focus-visible, .fit-host[data-active="true"]) .fit-text[data-over][data-mode="hover"],
+.fit-text[data-over][data-mode="hover"]:hover {
+  --fit-fade: 14px;
+  transition-delay: 0.35s, 0s;
+}
+:is(.fit-host:hover, .fit-host:focus-visible, .fit-host[data-active="true"]) .fit-text[data-over][data-mode="hover"] > .fit-in,
+.fit-text[data-over][data-mode="hover"]:hover > .fit-in {
+  transform: translateX(var(--fit-shift));
+  transition: transform var(--fit-time) linear 0.35s;
+}
+.fit-lines {
+  display: block;
+  max-height: 2lh;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+.fit-lines[data-over] {
+  -webkit-mask-image: linear-gradient(#000 0 0), linear-gradient(90deg, #000 calc(100% - 3em), transparent);
+  mask-image: linear-gradient(#000 0 0), linear-gradient(90deg, #000 calc(100% - 3em), transparent);
+  -webkit-mask-size: 100% calc(100% - 1lh), 100% 1lh;
+  mask-size: 100% calc(100% - 1lh), 100% 1lh;
+  -webkit-mask-position: 0 0, 0 100%;
+  mask-position: 0 0, 0 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+html.reduce-motion .fit-in {
+  transform: none !important;
+}
+html.reduce-motion .fit-text {
+  --fit-fade: 0px !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fit-in {
+    transform: none !important;
+  }
+  .fit-text {
+    --fit-fade: 0px !important;
+  }
+}
+/* Track lists show their Album column only once the list itself has room for
+   it — the main column narrows when the sidebar and right rail are open. */
+.tl {
+  container-type: inline-size;
+}
+.tl-album {
+  display: none;
+}
+@container (min-width: 820px) {
+  .tl-album {
+    display: block;
+  }
+}
+/* Quick tiles (Home's Jump back in, Search's Recently opened): columns by the
+   room the grid really has, not the window — two across until three fit
+   without crushing their titles. */
+.tile-host {
+  container-type: inline-size;
+}
+.tile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.mood-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+@container (min-width: 900px) {
+  .tile-grid,
+  .mood-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* ---------- Listening streak (components/Streak) ----------
+   The top bar's streak: a cartoon flame and the days in a row. The flame is
+   flat chunky shapes; it pops alight (squash and stretch, a burst ring),
+   then dances — its outlines swap between three hand-drawn frames like
+   animation cels, it rocks on its base, star sparkles pop off the top.
+   No streak: a flat grey flame and "0 days". */
+.streak-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 36px;
+  padding: 0 13px 0 9px;
+  border-radius: 999px;
+  color: rgb(var(--ink-hi));
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: background-color 0.15s ease;
+}
+.streak-chip:hover {
+  background: rgb(var(--ink-hi) / 0.08);
+}
+.streak-chip:focus-visible {
+  outline: 2px solid rgb(var(--accent));
+  outline-offset: 2px;
+}
+.streak-chip.is-cold {
+  color: rgb(var(--ink-hi) / 0.6);
+}
+.streak-n {
+  font-variant-numeric: tabular-nums;
+  animation: streak-n-in 0.45s cubic-bezier(0.34, 1.45, 0.64, 1) both;
+}
+@keyframes streak-n-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.8);
+  }
+}
+
+/* A newer ByTune (TopBar UpdateChip): the app's white primary pill, only while there's one. */
+.update-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px 0 11px;
+  border-radius: 999px;
+  background: rgb(var(--accent));
+  color: #000;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: transform 0.15s ease;
+  animation: update-chip-in 0.45s cubic-bezier(0.34, 1.45, 0.64, 1) both;
+}
+.update-chip:hover {
+  transform: scale(1.04);
+}
+.update-chip:active {
+  transform: scale(0.97);
+}
+.update-chip:focus-visible {
+  outline: 2px solid rgb(var(--accent));
+  outline-offset: 2px;
+}
+.update-label {
+  font-variant-numeric: tabular-nums;
+}
+@keyframes update-chip-in {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+}
+.fire {
+  --fire-at: 0.4s;
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 22px;
+  height: 27px;
+}
+.fire svg {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.fire-body,
+.fire svg path,
+.fire svg circle {
+  transform-box: fill-box;
+}
+.fire-body,
+.fire-core {
+  transform-origin: 50% 100%;
+}
+.fire-outer {
+  fill: #ff7a1a;
+}
+.fire-inner {
+  fill: #ffc53d;
+}
+.fire-core {
+  fill: #fff1a8;
+}
+.fire-shine {
+  fill: #fff;
+  opacity: 0.75;
+}
+.fire-spark {
+  fill: #ffd34d;
+  opacity: 0;
+  transform-origin: center;
+}
+.fire:not(.is-lit) .fire-outer {
+  fill: rgb(255 255 255 / 0.24);
+}
+.fire:not(.is-lit) :is(.fire-inner, .fire-core, .fire-shine, .fire-spark),
+.fire:not(.is-lit) .fire-burst {
+  display: none;
+}
+.fire-burst {
+  position: absolute;
+  left: 50%;
+  top: 62%;
+  width: 26px;
+  height: 26px;
+  margin: -13px 0 0 -13px;
+  border-radius: 50%;
+  border: 2px solid #ffa431;
+  opacity: 0;
+}
+.fire.is-lit .fire-burst {
+  animation: fire-burst 0.6s ease-out calc(var(--fire-at) + 0.15s) both;
+}
+/* It dances for a few seconds after it lights, then rests lit; hovering the chip sets it dancing again.
+   Never forever on its own: SVG outlines and transforms can't run on the compositor, so a flame that
+   never stopped made WebKitGTK redraw the whole window every frame (~120% CPU measured, idle). */
+.fire.is-lit .fire-body {
+  animation:
+    fire-pop 0.7s cubic-bezier(0.3, 1.4, 0.5, 1) var(--fire-at) both,
+    fire-rock 1.3s ease-in-out calc(var(--fire-at) + 0.7s) 3;
+}
+.fire.is-lit .fire-outer {
+  animation: fire-boil-outer 0.48s steps(1, end) calc(var(--fire-at) + 0.7s) 8;
+}
+.fire.is-lit .fire-inner {
+  animation: fire-boil-inner 0.48s steps(1, end) calc(var(--fire-at) + 0.86s) 8;
+}
+.fire.is-lit .fire-core {
+  animation: fire-bob 0.32s ease-in-out calc(var(--fire-at) + 0.7s) 12 alternate;
+}
+.fire.is-lit .fire-spark {
+  animation: fire-spark 2.4s ease-out 2;
+}
+.streak-chip:hover .fire.is-lit .fire-body {
+  /* fire-pop stays listed: dropping it would replay the pop (from scale 0) on un-hover. */
+  animation:
+    fire-pop 0.7s cubic-bezier(0.3, 1.4, 0.5, 1) var(--fire-at) both,
+    fire-rock 1.3s ease-in-out infinite;
+}
+.streak-chip:hover .fire.is-lit .fire-outer {
+  animation: fire-boil-outer 0.48s steps(1, end) infinite;
+}
+.streak-chip:hover .fire.is-lit .fire-inner {
+  animation: fire-boil-inner 0.48s steps(1, end) 0.16s infinite;
+}
+.streak-chip:hover .fire.is-lit .fire-core {
+  animation: fire-bob 0.32s ease-in-out infinite alternate;
+}
+.streak-chip:hover .fire.is-lit .fire-spark {
+  animation: fire-spark 2.4s ease-out infinite;
+}
+@keyframes fire-pop {
+  0% {
+    transform: scale(0);
+  }
+  40% {
+    transform: scale(1.25, 0.78);
+  }
+  62% {
+    transform: scale(0.86, 1.2);
+  }
+  80% {
+    transform: scale(1.06, 0.95);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes fire-rock {
+  0%,
+  100% {
+    transform: rotate(0deg) scale(1, 1);
+  }
+  25% {
+    transform: rotate(-6deg) scale(1.03, 0.97);
+  }
+  75% {
+    transform: rotate(6deg) scale(0.97, 1.04);
+  }
+}
+/* Three hand-drawn frames per shape; steps() cuts between them like cels. */
+@keyframes fire-boil-outer {
+  0%,
+  100% {
+    d: path("M20 46C10 46 5 39 5 31C5 24 9 20 12 15C12.5 19 14 21 15.5 21.5C15 14 17 8 21 2C22 9 26 12 27.5 17C28.5 15 30 13.5 31 11C34 18 35 25 35 31C35 39 30 46 20 46Z");
+  }
+  33% {
+    d: path("M20 46C10 46 5 39 5 31C5 24 8.5 20.5 10.5 16C11.5 19.5 13.5 21.5 15 22C14 14.5 16 8.5 19 3C21 9.5 25.5 12.5 27 17.5C28.5 15.5 30.5 14 32.5 12C35 19 35 25.5 35 31C35 39 30 46 20 46Z");
+  }
+  66% {
+    d: path("M20 46C10 46 5 39 5 31C5 24.5 9.5 19.5 13 14C13.5 18.5 15 20.5 16.5 21C16.5 13.5 19 7.5 23 3C23.5 9.5 26.5 12.5 28 16.5C29 14.5 29.5 12.5 30 10C33.5 17.5 35 24.5 35 31C35 39 30 46 20 46Z");
+  }
+}
+@keyframes fire-boil-inner {
+  0%,
+  100% {
+    d: path("M20 44C13.5 44 10.5 39.5 10.5 34C10.5 28 15 25 18 19C18.5 23 20 25 21.5 25.5C22.5 22 24 20.5 25 19C28 24 29.5 28.5 29.5 33.5C29.5 39.5 26 44 20 44Z");
+  }
+  33% {
+    d: path("M20 44C13.5 44 10.5 39.5 10.5 34C10.5 28.5 14 25.5 16.5 20C17.5 23.5 19 25.5 20.5 26C22 22.5 24 21 26 19.5C28.5 24.5 29.5 29 29.5 33.5C29.5 39.5 26 44 20 44Z");
+  }
+  66% {
+    d: path("M20 44C13.5 44 10.5 39.5 10.5 34C10.5 27.5 15.5 24.5 19 18C19.5 22.5 21 24.5 22.5 25C23.5 21.5 24.5 20 24.5 18.5C27.5 23.5 29.5 28 29.5 33.5C29.5 39.5 26 44 20 44Z");
+  }
+}
+@keyframes fire-bob {
+  to {
+    transform: scale(0.92, 1.12);
+  }
+}
+@keyframes fire-spark {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.2) rotate(0deg);
+  }
+  12% {
+    opacity: 1;
+    transform: translate(calc(var(--sx) * 0.3), -3px) scale(1.1) rotate(30deg);
+  }
+  45%,
+  100% {
+    opacity: 0;
+    transform: translate(var(--sx), -12px) scale(0.3) rotate(110deg);
+  }
+}
+@keyframes fire-burst {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.3);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.7);
+  }
+}
+
+/* Decorative motion rests when nobody is served by it (lib/motionRest): WebKitGTK redraws the page on
+   the main thread for every frame of every running animation. Minimized or hidden, nothing moves. */
+html.app-asleep *,
+html.app-asleep *::before,
+html.app-asleep *::after {
+  animation-play-state: paused !important;
+}
+/* Paused, the playing row keeps its glow but stops breathing (a 30px blur re-filtered every frame). */
+html.playback-idle .tl-playing::before {
+  animation: none;
+}
+
+/* A list that scrolls under a header or a panel's edge: its rows fade out at an
+   edge only while more lies past it (useEdgeFades sets the two sizes), and the
+   fades ease in and out instead of snapping. */
+@property --fade-top {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --fade-bottom {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+.edge-fades {
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 var(--fade-top), #000 calc(100% - var(--fade-bottom)), transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 var(--fade-top), #000 calc(100% - var(--fade-bottom)), transparent);
+  transition: --fade-top 180ms ease, --fade-bottom 180ms ease;
+}
+html.reduce-motion .edge-fades {
+  transition: none;
+}
